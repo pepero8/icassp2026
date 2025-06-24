@@ -1,0 +1,45 @@
+num_speakers: 4 # max number of speakers
+
+default_root_dir: ./icassp2026/exp
+
+optimizer:
+  lr: 0.0001
+  weight_decay: 0.001
+  betas: [0.9, 0.999]
+  eps: 1e-8
+  amsgrad: false
+
+control_module:
+  transformer_encoder:
+    pretrained_transformer: "bert"
+  cross_attention:
+    # query_dim:
+    # key_dim:
+    # value_dim:
+    embed_dim: 384 # FYI) BERT uses 768 for attention embd
+    num_heads: 1
+    dropout: 0.1
+    bias: true
+  conv_pool:
+    out_channels: 512
+    kernel_size: 9
+    padding: "same"
+    stride: 1
+  addressee_predictor:
+    hidden_dim: 256
+  control_predictor:
+    cross_attention:
+      # query_dim:
+      # key_dim:
+      # value_dim:
+      embed_dim: 384 # FYI) BERT uses 768 for attention embd
+      num_heads: 1
+      dropout: 0.1
+      bias: true
+    # input_dim:
+
+addressee_loss_weight: 1.0
+control_token_loss_weight: 1.0
+
+train_batch_size: 64
+val_batch_size: 16
