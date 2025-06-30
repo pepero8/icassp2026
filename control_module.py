@@ -36,7 +36,8 @@ class ControlModule(nn.Module):
         # )
         self.addressee_predictor_hidden = nn.Sequential(
             nn.Linear(
-                config.conv_pool.out_channels, config.addressee_predictor.hidden_dim
+                config.conv_pool.out_channels + self.transformer_encoder.dim,
+                config.addressee_predictor.hidden_dim,
             ),
             nn.ReLU(),
         )
@@ -97,6 +98,7 @@ class ControlModule(nn.Module):
             -1
         )  # Global average pooling. (1, 512)
 
+        out = torch.concat((out, cls), dim=-1)  # (1, 512 + D)
         addressee_emb = self.addressee_predictor_hidden(out)  # (1, hidden_dim)
         addressee = self.addressee_predictor_out(
             addressee_emb
