@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 from transformers import BertModel, BertTokenizer
 
@@ -32,6 +33,10 @@ class TransformerEncoder(nn.Module):
     @property
     def tokenizer(self):
         return self.__tokenizer
+    
+    @property
+    def device(self):
+        return self.__model.device
 
     def forward(self, x):
         """

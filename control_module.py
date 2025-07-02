@@ -75,6 +75,9 @@ class ControlModule(nn.Module):
         x: (1, T), Speaker and content tokens
         dialog_memory: (L, D), D is dim of cls token(dim of transformer encoder output)
         """
+        
+        # > Ensure x is on the same device as model
+        x = x.to(self.transformer_encoder.device)
 
         cls = self.transformer_encoder(x)  # (1, D)
 
