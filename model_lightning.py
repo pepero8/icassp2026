@@ -17,7 +17,7 @@ class LitSAASRControl(L.LightningModule):
 
         if config.num_speakers == 2:
             self.addressee_labels = ["Speaker_A", "Speaker_B", "Assistant", "All"]
-            self.ai_addressee_labels = ["Speaker_A", "Speaker_B", "NA"]
+            self.ai_addressee_labels = ["Speaker_A", "Speaker_B", "NA", "All"]
         elif config.num_speakers == 3:
             self.addressee_labels = [
                 "Speaker_A",
@@ -26,7 +26,7 @@ class LitSAASRControl(L.LightningModule):
                 "Assistant",
                 "All",
             ]
-            self.ai_addressee_labels = ["Speaker_A", "Speaker_B", "Speaker_C", "NA"]
+            self.ai_addressee_labels = ["Speaker_A", "Speaker_B", "Speaker_C", "NA", "All"]
         elif config.num_speakers == 4:
             self.addressee_labels = [
                 "Speaker_A",
@@ -42,6 +42,7 @@ class LitSAASRControl(L.LightningModule):
                 "Speaker_C",
                 "Speaker_D",
                 "NA",
+                "All"
             ]
 
         self.control_token_labels = [
@@ -85,6 +86,8 @@ class LitSAASRControl(L.LightningModule):
                 chunk.control_token,
             )
             batch_loss = batch_loss + loss
+            
+        batch_loss = batch_loss / len(sample)
         self.log("train_loss", batch_loss, prog_bar=True, batch_size=len(sample))
 
         return batch_loss
@@ -109,6 +112,8 @@ class LitSAASRControl(L.LightningModule):
                 chunk.control_token,
             )
             batch_loss = batch_loss + loss
+            
+        batch_loss = batch_loss / len(sample)
         self.log("val_loss", batch_loss, prog_bar=True, batch_size=len(sample))
         return batch_loss
 
