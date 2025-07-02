@@ -4,9 +4,12 @@ from lightning.pytorch.strategies import DDPStrategy
 import lightning.pytorch as L
 from omegaconf import OmegaConf
 import typer
+from datetime import datetime
 
 from data_module import DataModule
 from model_lightning import LitSAASRControl
+
+from lightning.pytorch.loggers import TensorBoardLogger
 
 app = typer.Typer(pretty_exceptions_enable=False)
 
@@ -43,10 +46,16 @@ def main(
     #     strategy=ddp_strategy,
     # ) # ? for testing
     
+    # > Generate version based on current timestamp
+    current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
+    # > Create a logger instance
+    logger = TensorBoardLogger(config.default_root_dir, version=current_time, name="icassp2026")
+
     trainer = L.Trainer(
         num_sanity_val_steps=1,
         max_epochs=10,
-        default_root_dir=config.default_root_dir,  # Path to save checkpoints and logs
+        logger=logger,
+        # default_root_dir=config.default_root_dir,  # Path to save checkpoints and logs
         callbacks=[early_stop_callback],
         # strategy=ddp_strategy,
     )
@@ -54,13 +63,13 @@ def main(
     trainer.fit(model, data_module)
     # trainer.fit(model, ckpt_path="path/to/your/checkpoint.ckpt")  # resume training
 
-    trainer.test(
-        model, datamodule=data_module, ckpt_path="best"
-    )  # test with best checkpoint
+    # trainer.test(
+    #     model, datamodule=data_module, ckpt_path="best"
+    # )  # test with best checkpoint
 
 
 if __name__ == "__main__":
     app()
     # typer.run(main)
 
-# CUDA_VISIBLE_DEVICES=0 python train.py config.yaml
+# CUDA_VISIBLE_DEVICES=0 CUDA_LAUNCH_BLOCKING=1 python train.py config.yaml
