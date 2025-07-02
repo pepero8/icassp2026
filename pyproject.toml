@@ -11,7 +11,8 @@ dependencies = [
     "lightning (>=2.5.2,<3.0.0)",
     "omegaconf (>=2.3.0,<3.0.0)",
     "transformers (>=4.52.4,<5.0.0)",
-    "tensorboard (>=2.19.0,<3.0.0)"
+    "tensorboard (>=2.19.0,<3.0.0)",
+    "typer (>=0.16.0,<0.17.0)"
 ]
 
 [tool.poetry]
