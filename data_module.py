@@ -14,8 +14,8 @@ class DataModule(L.LightningDataModule):
 
     def setup(self, stage: str):
         if stage == "fit":
-            # > get file path list of 15000 samples(15000 .pt paths) from data_dir
-            file_list = sorted([str(p) for p in Path(self.data_dir).glob("*.pt")])
+            # > get file path list of 15000 samples(15000 .json paths) from data_dir
+            file_list = sorted([str(p) for p in Path(self.data_dir).glob("*.json")])
 
             # > Split the file list into training and validation sets
             train_size = 13000
@@ -39,8 +39,10 @@ class DataModule(L.LightningDataModule):
             )
 
         if stage == "test":
-            # > get file path list of 500 samples(500 .pt paths) from test_data_dir
-            test_list = sorted([str(p) for p in Path(self.data_dir).glob("*.pt")])
+            # > get file path list of 500 samples(500 .json paths) from test_data_dir
+            test_list = sorted(
+                [str(p) for p in Path(self.test_data_dir).glob("*.json")]
+            )
             self.test_dataset = CustomDataset(test_list)
 
     def train_dataloader(self):

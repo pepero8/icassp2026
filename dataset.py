@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Union
 import torch
 from torch.utils.data import Dataset
+import json
 
 
 @dataclass
@@ -43,9 +44,32 @@ class CustomDataset(Dataset):
     def __getitem__(self, index):
         if self.current_sample is None or self.idx >= len(self.current_sample):
             # Load a new sample
-            self.current_sample = torch.load(
-                self.sample_files_list[self.sample_list_idx]
-            )
+            # self.current_sample = torch.load(
+            #     self.sample_files_list[self.sample_list_idx]
+            # )
+
+            # > load json file. it contains list of dictionaries
+            with open(
+                self.sample_files_list[self.sample_list_idx], "r", encoding="utf-8"
+            ) as f:
+                data = json.load(f)
+
+            self.current_sample = data
+            # > convert to list of Chunk instances
+            self.current_sample = [
+                Chunk(
+                    tape=item["tape"],
+                    addressee=item["addressee"],
+                    control_token=item["control_token"],
+                    ai_addressee=item["ai_addressee"],
+                    ai_response=item["ai_response"],
+                    original_response_without_interruption=item[
+                        "original_response_without_interruption"
+                    ],
+                )
+                for item in data
+            ]
+
             self.idx = 0
             self.sample_list_idx += 1
             self.reset_dialog_memory = True
