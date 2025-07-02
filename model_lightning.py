@@ -1,6 +1,7 @@
 import torch
 from torch import nn
-import pytorch_lightning as L
+# import pytorch_lightning as L
+import lightning.pytorch as L
 
 from dataset import TrainBatch
 from model import SAASRControl
@@ -8,7 +9,7 @@ from model import SAASRControl
 
 class LitSAASRControl(L.LightningModule):
     def __init__(self, config):
-        super().__init__()
+        super(LitSAASRControl, self).__init__()
         self.model: SAASRControl = SAASRControl(config)
         self.config = config
         self.save_hyperparameters()
