@@ -67,7 +67,7 @@ class ControlModule(nn.Module):
             nn.ReLU(),
         )
         self.ai_addressee_predictor_linear = nn.Linear(
-            config.addressee_predictor.hidden_dim, num_speakers + 1  # + 1 for 'NA'
+            config.addressee_predictor.hidden_dim, num_speakers + 2  # + 2 for 'NA' and 'All'
         )
 
     def forward(self, x, dialog_memory):
