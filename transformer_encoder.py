@@ -43,6 +43,8 @@ class TransformerEncoder(nn.Module):
         x: (1, T), token sequence of shape (batch_size, sequence_length)
         """
 
+        x = x.to(self.__model.device)
+
         # > return the first token([CLS]) of output sequence
         # outputs = self.__model(inputs_embeds=x)  # (1, T, D)
         outputs = self.__model(input_ids=x)  # (1, T, D)
