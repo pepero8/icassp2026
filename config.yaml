@@ -1,3 +1,5 @@
+seed: 42
+
 num_speakers: 4 # max number of speakers
 
 default_root_dir: ./icassp2026/exp
