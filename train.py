@@ -15,7 +15,9 @@ def main(
     config = OmegaConf.load(cfg)
 
     model = LitSAASRControl(config)
-    data_module = DataModule(config)
+    data_module = DataModule(
+        config, data_dir=config.data_dir, test_data_dir=config.test_data_dir
+    )
 
     early_stop_callback = EarlyStopping(
         monitor="val_loss",
@@ -48,3 +50,5 @@ def main(
 
 if __name__ == "__main__":
     typer.run(main)
+
+# CUDA_VISIBLE_DEVICES=0 python train.py config.yaml
