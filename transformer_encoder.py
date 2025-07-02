@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 from transformers import BertModel, BertTokenizer
 
@@ -32,11 +33,17 @@ class TransformerEncoder(nn.Module):
     @property
     def tokenizer(self):
         return self.__tokenizer
+    
+    @property
+    def device(self):
+        return self.__model.device
 
     def forward(self, x):
         """
         x: (1, T), token sequence of shape (batch_size, sequence_length)
         """
+
+        x = x.to(self.__model.device)
 
         # > return the first token([CLS]) of output sequence
         # outputs = self.__model(inputs_embeds=x)  # (1, T, D)

@@ -1,6 +1,7 @@
 import torch
 from torch import nn
-import pytorch_lightning as L
+# import pytorch_lightning as L
+import lightning.pytorch as L
 
 from dataset import TrainBatch
 from model import SAASRControl
@@ -8,7 +9,7 @@ from model import SAASRControl
 
 class LitSAASRControl(L.LightningModule):
     def __init__(self, config):
-        super().__init__()
+        super(LitSAASRControl, self).__init__()
         self.model: SAASRControl = SAASRControl(config)
         self.config = config
         self.save_hyperparameters()
@@ -16,7 +17,7 @@ class LitSAASRControl(L.LightningModule):
 
         if config.num_speakers == 2:
             self.addressee_labels = ["Speaker_A", "Speaker_B", "Assistant", "All"]
-            self.ai_addressee_labels = ["Speaker_A", "Speaker_B", "NA"]
+            self.ai_addressee_labels = ["Speaker_A", "Speaker_B", "NA", "All"]
         elif config.num_speakers == 3:
             self.addressee_labels = [
                 "Speaker_A",
@@ -25,7 +26,7 @@ class LitSAASRControl(L.LightningModule):
                 "Assistant",
                 "All",
             ]
-            self.ai_addressee_labels = ["Speaker_A", "Speaker_B", "Speaker_C", "NA"]
+            self.ai_addressee_labels = ["Speaker_A", "Speaker_B", "Speaker_C", "NA", "All"]
         elif config.num_speakers == 4:
             self.addressee_labels = [
                 "Speaker_A",
@@ -41,6 +42,7 @@ class LitSAASRControl(L.LightningModule):
                 "Speaker_C",
                 "Speaker_D",
                 "NA",
+                "All"
             ]
 
         self.control_token_labels = [
@@ -73,17 +75,26 @@ class LitSAASRControl(L.LightningModule):
             self.model.reset_dialog_memory()
 
         batch_loss = torch.tensor(0.0, device=self.device)
+        num_samples = len(sample)
         for chunk in sample:
             addressee, ai_addressee, control_token = self.model(chunk)
-            loss = self.compute_loss(
-                addressee,
-                ai_addressee,
-                control_token,
-                chunk.addressee,
-                chunk.ai_addressee,
-                chunk.control_token,
-            )
+            try:
+                loss = self.compute_loss(
+                    addressee,
+                    ai_addressee,
+                    control_token,
+                    chunk.addressee,
+                    chunk.ai_addressee,
+                    chunk.control_token,
+                )
+            except Exception as e:
+                print(f"Error in validation step: {e}")
+                num_samples -= 1
+                continue
+            
             batch_loss = batch_loss + loss
+            
+        batch_loss = batch_loss / (num_samples if num_samples > 0 else 1)
         self.log("train_loss", batch_loss, prog_bar=True, batch_size=len(sample))
 
         return batch_loss
@@ -97,17 +108,26 @@ class LitSAASRControl(L.LightningModule):
             self.model.reset_dialog_memory()
 
         batch_loss = torch.tensor(0.0, device=self.device)
+        num_samples = len(sample)
         for chunk in sample:
             addressee, ai_addressee, control_token = self.model(chunk)
-            loss = self.compute_loss(
-                addressee,
-                ai_addressee,
-                control_token,
-                chunk.addressee,
-                chunk.ai_addressee,
-                chunk.control_token,
-            )
+            try:
+                loss = self.compute_loss(
+                    addressee,
+                    ai_addressee,
+                    control_token,
+                    chunk.addressee,
+                    chunk.ai_addressee,
+                    chunk.control_token,
+                )
+            except Exception as e:
+                print(f"Error in validation step: {e}")
+                num_samples -= 1
+                continue
+                
             batch_loss = batch_loss + loss
+            
+        batch_loss = batch_loss / (num_samples if num_samples > 0 else 1)
         self.log("val_loss", batch_loss, prog_bar=True, batch_size=len(sample))
         return batch_loss
 

@@ -40,7 +40,7 @@ class SAASRControl(nn.Module):
 
         # > update dialog memory with cls token and addressee embedding
         new_token = torch.cat(
-            (addressee_embd, cls), dim=1
+            (addressee_embd.detach(), cls.detach()), dim=1 # tensors should be detached to avoid gradients flowing into dialog memory
         )  # (1, D+hidden_dim), D is dim of cls token, hidden_dim is dim of addressee embedding
         if self.dialog_memory.numel() == 0:
             self.dialog_memory = new_token
@@ -49,17 +49,18 @@ class SAASRControl(nn.Module):
 
         # > if ai response exists, append it to dialog memory
         if x.ai_response is not None:
-            ai_response_token_sequence = self.tokenizer.encode(
-                x.ai_response, add_special_tokens=True, return_tensors="pt"
-            )
+            with torch.no_grad():
+                ai_response_token_sequence = self.tokenizer.encode(
+                    x.ai_response, add_special_tokens=True, return_tensors="pt"
+                )
 
-            # > pass it to transformer encoder to get cls token
-            ai_response_cls = self.control_module.transformer_encoder(
-                ai_response_token_sequence
-            )  # (1, D)
+                # > pass it to transformer encoder to get cls token
+                ai_response_cls = self.control_module.transformer_encoder(
+                    ai_response_token_sequence
+                )  # (1, D)
 
             new_token = torch.cat(
-                (ai_addressee_embd, ai_response_cls), dim=1
+                (ai_addressee_embd.detach(), ai_response_cls.detach()), dim=1
             )  # (1, D+hidden_dim)
 
             self.dialog_memory = torch.cat((self.dialog_memory, new_token), dim=0)
@@ -71,6 +72,7 @@ class SAASRControl(nn.Module):
         Reset dialog memory to initial state.
         """
         self.dialog_memory = torch.Tensor([])
+        self.dialog_memory.requires_grad = False
 
     def inference(self, x):
         pass
