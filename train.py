@@ -1,11 +1,12 @@
 from typing import Annotated
-from icassp2026.data_module import DataModule
-from icassp2026.model_lightning import LitSAASRControl
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.strategies import DDPStrategy
 import lightning.pytorch as L
 from omegaconf import OmegaConf
 import typer
+
+from data_module import DataModule
+from model_lightning import LitSAASRControl
 
 
 def main(

@@ -1,8 +1,9 @@
 from pathlib import Path
 import pytorch_lightning as L
 import torch
-from icassp2026.dataset import CustomDataset, collate_fn
 from torch.utils.data import DataLoader, random_split
+
+from dataset import CustomDataset, collate_fn
 
 
 class DataModule(L.LightningDataModule):
