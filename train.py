@@ -8,7 +8,9 @@ import typer
 from data_module import DataModule
 from model_lightning import LitSAASRControl
 
+app = typer.Typer(pretty_exceptions_enable=False)
 
+@app.command()
 def main(
     cfg: Annotated[str, typer.Argument(help="Path to the config file")],
 ):
@@ -30,15 +32,23 @@ def main(
         check_on_train_epoch_end=False,
     )
 
-    ddp_strategy = DDPStrategy()
+    # ddp_strategy = DDPStrategy()
 
+    # trainer = L.Trainer(
+    #     fast_dev_run=1,
+    #     num_sanity_val_steps=1,
+    #     max_epochs=10,
+    #     default_root_dir=config.default_root_dir,  # Path to save checkpoints and logs
+    #     callbacks=[early_stop_callback],
+    #     strategy=ddp_strategy,
+    # ) # ? for testing
+    
     trainer = L.Trainer(
-        fast_dev_run=1,
         num_sanity_val_steps=1,
         max_epochs=10,
         default_root_dir=config.default_root_dir,  # Path to save checkpoints and logs
         callbacks=[early_stop_callback],
-        strategy=ddp_strategy,
+        # strategy=ddp_strategy,
     )
 
     trainer.fit(model, data_module)
@@ -50,6 +60,7 @@ def main(
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    app()
+    # typer.run(main)
 
 # CUDA_VISIBLE_DEVICES=0 python train.py config.yaml
