@@ -2,6 +2,12 @@ num_speakers: 4 # max number of speakers
 
 default_root_dir: ./icassp2026/exp
 
+data_dir: /shared/data_zfs/jhwan/icassp/synthesized_data_v2_refined_processed # train data
+
+# todo: make separate test data
+test_data_dir: /shared/data_zfs/jhwan/icassp/synthesized_data_v2_refined_processed # test data
+
+
 optimizer:
   lr: 0.0001
   weight_decay: 0.001
