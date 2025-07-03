@@ -88,7 +88,7 @@ class LitSAASRControl(L.LightningModule):
                     chunk.control_token,
                 )
             except Exception as e:
-                print(f"Error in validation step: {e}")
+                print(f"Error in loss calculation in train step: {e}")
                 num_samples -= 1
                 continue
             
@@ -100,6 +100,7 @@ class LitSAASRControl(L.LightningModule):
         return batch_loss
 
     def validation_step(self, batch: TrainBatch, batch_idx):
+        # ! dialogue memory가 남아있는 상태에서 validation을 하면 안됨
         sample = (
             batch.sample
         )  # list of 64 Chunk instances(can be <64 if last chunk set of dialogue)
@@ -121,7 +122,7 @@ class LitSAASRControl(L.LightningModule):
                     chunk.control_token,
                 )
             except Exception as e:
-                print(f"Error in validation step: {e}")
+                print(f"Error in loss calculation in validation step: {e}")
                 num_samples -= 1
                 continue
                 
