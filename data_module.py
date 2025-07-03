@@ -4,7 +4,7 @@ import lightning.pytorch as L
 import torch
 from torch.utils.data import DataLoader, random_split
 
-from dataset import CustomDataset, collate_fn
+from dataset import CustomDataset, CustomSampler, collate_fn
 
 
 class DataModule(L.LightningDataModule):
@@ -39,6 +39,9 @@ class DataModule(L.LightningDataModule):
             self.val_dataset = CustomDataset(
                 val_list, batch_size=self.config.val_batch_size
             )
+            
+            print(f"Train dataset size: {len(self.train_dataset)}")
+            print(f"Validation dataset size: {len(self.val_dataset)}")
 
         if stage == "test":
             # > get file path list of 500 samples(500 .json paths) from test_data_dir
@@ -54,6 +57,7 @@ class DataModule(L.LightningDataModule):
             shuffle=False,
             num_workers=63,
             collate_fn=collate_fn,
+            sampler=CustomSampler(self.train_dataset),
         )
 
     def val_dataloader(self):
@@ -63,9 +67,10 @@ class DataModule(L.LightningDataModule):
             shuffle=False,
             num_workers=63,
             collate_fn=collate_fn,
+            sampler=CustomSampler(self.val_dataset),
         )
 
     def test_dataloader(self):
         return DataLoader(
-            self.test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn
+            self.test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn, sampler=CustomSampler(self.test_dataset)
         )

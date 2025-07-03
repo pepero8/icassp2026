@@ -1,7 +1,8 @@
 from dataclasses import dataclass
+import math
 from typing import Union
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Sampler
 import json
 
 
@@ -31,6 +32,19 @@ def collate_fn(batch):
     """
     return batch[0]  # Return the single TrainBatch
 
+class CustomSampler(Sampler):
+    def __init__(self, dataset):
+        self.dataset = dataset
+        self.num_samples = len(dataset)
+        
+    def __iter__(self):
+        # Create an iterator that yields indices in a random order
+        indices = torch.randperm(self.num_samples).tolist()
+        return iter(indices)
+    
+    def __len__(self):
+        return self.num_samples
+
 
 class CustomDataset(Dataset):
     def __init__(self, sample_files_list, batch_size=64):
@@ -40,6 +54,18 @@ class CustomDataset(Dataset):
         self.idx = 0
         self.sample_list_idx = 0
         self.reset_dialog_memory = False
+        
+        self.total_steps = 0  # total number of update steps(samples) in this dataset
+        # > load json file. it contains list of dictionaries
+        for file in self.sample_files_list:
+            with open(file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            steps = math.ceil(
+                len(data) / self.batch_size
+            )  # number of update steps in one session
+
+            self.total_steps += steps
 
     def __getitem__(self, index):
         if self.current_sample is None or self.idx >= len(self.current_sample):
@@ -81,7 +107,8 @@ class CustomDataset(Dataset):
         return TrainBatch(next, reset_dialog_memory=self.reset_dialog_memory)
 
     def __len__(self):
-        return len(self.sample_files_list)
+        # return len(self.sample_files_list)
+        return self.total_steps
 
 
 class DummyDataset(Dataset):
