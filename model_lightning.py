@@ -109,11 +109,23 @@ class LitSAASRControl(L.LightningModule):
             self.model.reset_dialog_memory()
 
         batch_loss = torch.tensor(0.0, device=self.device)
+        batch_pred_addressee = 0
+        batch_pred_ai_addressee = 0
+        batch_pred_control_token = 0
+
         num_samples = len(sample)
         for chunk in sample:
             addressee, ai_addressee, control_token = self.model(chunk)
             try:
                 loss = self.compute_loss(
+                    addressee,
+                    ai_addressee,
+                    control_token,
+                    chunk.addressee,
+                    chunk.ai_addressee,
+                    chunk.control_token,
+                )
+                pred_addressee, pred_ai_addressee, pred_control_token = self.check_predictions(
                     addressee,
                     ai_addressee,
                     control_token,
@@ -127,9 +139,20 @@ class LitSAASRControl(L.LightningModule):
                 continue
                 
             batch_loss = batch_loss + loss
-            
+            batch_pred_addressee = batch_pred_addressee + pred_addressee
+            batch_pred_ai_addressee = batch_pred_ai_addressee + pred_ai_addressee
+            batch_pred_control_token = batch_pred_control_token + pred_control_token
+
         batch_loss = batch_loss / (num_samples if num_samples > 0 else 1)
+        batch_acc_addressee = batch_pred_addressee / (num_samples if num_samples > 0 else 1)
+        batch_acc_ai_addressee = batch_pred_ai_addressee / (num_samples if num_samples > 0 else 1)
+        batch_acc_control_token = batch_pred_control_token / (num_samples if num_samples > 0 else 1)
+
         self.log("val_loss", batch_loss, prog_bar=True, batch_size=len(sample))
+        self.log("val_acc_addressee", batch_acc_addressee, prog_bar=True, batch_size=len(sample))
+        self.log("val_acc_ai_addressee", batch_acc_ai_addressee, prog_bar=True, batch_size=len(sample))
+        self.log("val_acc_control_token", batch_acc_control_token, prog_bar=True, batch_size=len(sample))
+        
         return batch_loss
 
     def test_step(self, batch, batch_idx):
@@ -175,3 +198,35 @@ class LitSAASRControl(L.LightningModule):
             + self.config.addressee_loss_weight * ai_addressee_loss
             + self.config.control_token_loss_weight * control_token_loss
         )
+
+
+    def check_predictions(
+            self,
+            addressee_hat,
+            ai_addressee_hat,
+            control_token_hat,
+            addressee,
+            ai_addressee,
+            control_token,
+        ):
+            """
+            addressee_hat: (1, num_speakers)
+            control_token_hat: (1, 4)
+            addressee: str - target addressee label
+            control_token: str - target control token label
+            """
+            
+            # >> Get num of correct predictions for addressee, ai_addressee, and control_token
+            addressee_idx = self.addressee_to_idx[addressee]
+            addressee_hat_idx = torch.argmax(addressee_hat, dim=1).item()
+            correct_addressee = 1 if addressee_idx == addressee_hat_idx else 0
+
+            ai_addressee_idx = self.ai_addressee_to_idx[ai_addressee]
+            ai_addressee_hat_idx = torch.argmax(ai_addressee_hat, dim=1).item()
+            correct_ai_addressee = 1 if ai_addressee_idx == ai_addressee_hat_idx else 0
+
+            control_token_idx = self.control_token_to_idx[control_token]
+            control_token_hat_idx = torch.argmax(control_token_hat, dim=1).item()
+            correct_control_token = 1 if control_token_idx == control_token_hat_idx else 0
+
+            return correct_addressee, correct_ai_addressee, correct_control_token
