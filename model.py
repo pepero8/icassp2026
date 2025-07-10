@@ -17,8 +17,13 @@ class SAASRControl(nn.Module):
         self.tokenizer = self.control_module.transformer_encoder.tokenizer
 
         self.dialog_memory.requires_grad = False
+        
+        self.addressee_embedding = nn.Embedding(
+            num_embeddings=self.config.num_speakers + 2,  # +2 for 'assistant' and 'all'
+            embedding_dim=self.config.control_module.addressee_predictor.hidden_dim,
+        )  # (num_speakers+2, hidden_dim)
 
-    def forward(self, x):
+    def forward(self, x, addressee_to_idx=None, ai_addressee_to_idx=None, control_token_to_idx=None, mode=None):
         """
         x: Chunk instance
         """
@@ -29,6 +34,13 @@ class SAASRControl(nn.Module):
             x.tape, add_special_tokens=True, return_tensors="pt"
         )  # (1, T) add_special_tokens=True로 주면 문장 처음에 [CLS] 토큰, 마지막에 [SEP] 토큰이 추가됨
 
+        target_addressee = x.addressee  # (1, ) tensor of addressee label
+        target_ai_addressee = x.ai_addressee  # (1, ) tensor
+        target_control_token = x.control_token  # (1, ) tensor of control token label
+        target_addressee_idx = addressee_to_idx[target_addressee] if addressee_to_idx else None
+        target_ai_addressee_idx = ai_addressee_to_idx[target_ai_addressee] if ai_addressee_to_idx else None
+        target_control_token_idx = control_token_to_idx[target_control_token] if control_token_to_idx else None
+        
         (
             addressee,
             addressee_embd,
@@ -37,6 +49,21 @@ class SAASRControl(nn.Module):
             control_token,
             cls,
         ) = self.control_module(token_sequence, self.dialog_memory)
+
+        if mode == "train":
+            addressee_label = torch.tensor(target_addressee_idx).unsqueeze(0).to(cls.device)  # (1, )
+            ai_addressee_label = torch.tensor(target_ai_addressee_idx).unsqueeze(0).to(cls.device)  # (1, )
+            # control_token_label = target_control_token_idx.unsqueeze(0)  # (1, )
+            addressee_embd = self.addressee_embedding(addressee_label)  # (1, hidden_dim)
+            ai_addressee_embd = self.addressee_embedding(ai_addressee_label)
+            
+        else:
+            addressee_label = addressee.argmax(dim=1)
+            ai_addressee_label = ai_addressee.argmax(dim=1)
+            addressee_embd = self.addressee_embedding(addressee_label)  # (1, hidden_dim)
+            ai_addressee_embd = self.addressee_embedding(ai_addressee_label) # (1, hidden_dim)
+        
+        
 
         # > update dialog memory with cls token and addressee embedding
         new_token = torch.cat(
@@ -47,6 +74,10 @@ class SAASRControl(nn.Module):
         else:
             self.dialog_memory = torch.cat((self.dialog_memory, new_token), dim=0)
 
+
+
+        ##############################################
+        # AI response가 존재하는지 아닌지에 대한 check 필요
         # > if ai response exists, append it to dialog memory
         if x.ai_response is not None:
             with torch.no_grad():
@@ -64,6 +95,7 @@ class SAASRControl(nn.Module):
             )  # (1, D+hidden_dim)
 
             self.dialog_memory = torch.cat((self.dialog_memory, new_token), dim=0)
+        ##############################################
 
         return addressee, ai_addressee, control_token
 

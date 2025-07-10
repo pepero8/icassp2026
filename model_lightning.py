@@ -75,11 +75,16 @@ class LitSAASRControl(L.LightningModule):
             self.model.reset_dialog_memory()
 
         batch_loss = torch.tensor(0.0, device=self.device)
+        batch_addr_loss = torch.tensor(0.0, device=self.device)
+        batch_aiaddr_loss = torch.tensor(0.0, device=self.device)
+        batch_ctrl_loss = torch.tensor(0.0, device=self.device)
+        
         num_samples = len(sample)
         for chunk in sample:
-            addressee, ai_addressee, control_token = self.model(chunk)
+            addressee, ai_addressee, control_token = self.model(chunk, self.addressee_to_idx, self.ai_addressee_to_idx, self.control_token_to_idx, mode = "train")
+            # addressee, ai_addressee, control_token = self.model(chunk)
             try:
-                loss = self.compute_loss(
+                addressee_loss, ai_addressee_loss, control_token_loss = self.compute_loss(
                     addressee,
                     ai_addressee,
                     control_token,
@@ -87,15 +92,35 @@ class LitSAASRControl(L.LightningModule):
                     chunk.ai_addressee,
                     chunk.control_token,
                 )
+                
             except Exception as e:
                 print(f"Error in loss calculation in train step: {e}")
                 num_samples -= 1
                 continue
             
-            batch_loss = batch_loss + loss
+            batch_addr_loss = batch_addr_loss + addressee_loss
+            batch_aiaddr_loss = batch_aiaddr_loss + ai_addressee_loss
+            batch_ctrl_loss = batch_ctrl_loss + control_token_loss
             
-        batch_loss = batch_loss / (num_samples if num_samples > 0 else 1)
+            
+            # batch_loss = batch_loss + loss
+            
+        # batch_loss = batch_loss / (num_samples if num_samples > 0 else 1)
+        batch_addr_loss = batch_addr_loss / (num_samples if num_samples > 0 else 1)
+        batch_aiaddr_loss = batch_aiaddr_loss / (num_samples if num_samples > 0 else 1)
+        batch_ctrl_loss = batch_ctrl_loss / (num_samples if num_samples > 0 else 1)
+        batch_loss = (
+            self.config.addressee_loss_weight * batch_addr_loss
+            + self.config.ai_addressee_loss_weight * batch_aiaddr_loss
+            + self.config.control_token_loss_weight * batch_ctrl_loss
+        )
+        
+        assert not torch.isnan(batch_loss).any(), f"Loss is NaN, batch_idx: {batch_idx}" # NOTE: 어떨땐 nan이 뜨고 어떨땐 안뜸..
+        
         self.log("train_loss", batch_loss, prog_bar=True, batch_size=len(sample))
+        self.log("addr_loss", batch_addr_loss, prog_bar=True, batch_size=len(sample))
+        self.log("aiaddr_loss", batch_aiaddr_loss, prog_bar=True, batch_size=len(sample))
+        self.log("ctrl_loss", batch_ctrl_loss, prog_bar=True, batch_size=len(sample))
 
         return batch_loss
 
@@ -109,15 +134,20 @@ class LitSAASRControl(L.LightningModule):
             self.model.reset_dialog_memory()
 
         batch_loss = torch.tensor(0.0, device=self.device)
+        batch_addr_loss = torch.tensor(0.0, device=self.device)
+        batch_aiaddr_loss = torch.tensor(0.0, device=self.device)
+        batch_ctrl_loss = torch.tensor(0.0, device=self.device)
+        
         batch_pred_addressee = 0
         batch_pred_ai_addressee = 0
         batch_pred_control_token = 0
 
         num_samples = len(sample)
         for chunk in sample:
-            addressee, ai_addressee, control_token = self.model(chunk)
+            addressee, ai_addressee, control_token = self.model(chunk, self.addressee_to_idx, self.ai_addressee_to_idx, self.control_token_to_idx, mode = "valid")
+            # addressee, ai_addressee, control_token = self.model(chunk)
             try:
-                loss = self.compute_loss(
+                addressee_loss, ai_addressee_loss, control_token_loss = self.compute_loss(
                     addressee,
                     ai_addressee,
                     control_token,
@@ -138,12 +168,25 @@ class LitSAASRControl(L.LightningModule):
                 num_samples -= 1
                 continue
                 
-            batch_loss = batch_loss + loss
+            # batch_loss = batch_loss + loss
+            batch_addr_loss = batch_addr_loss + addressee_loss
+            batch_aiaddr_loss = batch_aiaddr_loss + ai_addressee_loss
+            batch_ctrl_loss = batch_ctrl_loss + control_token_loss
+            
             batch_pred_addressee = batch_pred_addressee + pred_addressee
             batch_pred_ai_addressee = batch_pred_ai_addressee + pred_ai_addressee
             batch_pred_control_token = batch_pred_control_token + pred_control_token
 
-        batch_loss = batch_loss / (num_samples if num_samples > 0 else 1)
+        # batch_loss = batch_loss / (num_samples if num_samples > 0 else 1)
+        batch_addr_loss = batch_addr_loss / (num_samples if num_samples > 0 else 1)
+        batch_aiaddr_loss = batch_aiaddr_loss / (num_samples if num_samples > 0 else 1)
+        batch_ctrl_loss = batch_ctrl_loss / (num_samples if num_samples > 0 else 1)
+        batch_loss = (
+            self.config.addressee_loss_weight * batch_addr_loss
+            + self.config.ai_addressee_loss_weight * batch_aiaddr_loss
+            + self.config.control_token_loss_weight * batch_ctrl_loss
+        )
+        
         batch_acc_addressee = batch_pred_addressee / (num_samples if num_samples > 0 else 1)
         batch_acc_ai_addressee = batch_pred_ai_addressee / (num_samples if num_samples > 0 else 1)
         batch_acc_control_token = batch_pred_control_token / (num_samples if num_samples > 0 else 1)
@@ -193,11 +236,12 @@ class LitSAASRControl(L.LightningModule):
         ai_addressee_loss = self.loss(ai_addressee_hat, ai_addressee_idx)
         control_token_loss = self.loss(control_token_hat, control_token_idx)
 
-        return (
-            self.config.addressee_loss_weight * addressee_loss
-            + self.config.addressee_loss_weight * ai_addressee_loss
-            + self.config.control_token_loss_weight * control_token_loss
-        )
+        # return (
+        #     self.config.addressee_loss_weight * addressee_loss
+        #     + self.config.addressee_loss_weight * ai_addressee_loss
+        #     + self.config.control_token_loss_weight * control_token_loss
+        # )
+        return addressee_loss, ai_addressee_loss, control_token_loss
 
 
     def check_predictions(
