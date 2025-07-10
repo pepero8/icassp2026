@@ -24,6 +24,10 @@ class TransformerEncoder(nn.Module):
             self.__model.resize_token_embeddings(len(self.__tokenizer))
 
             for param in self.__model.parameters():
+                param.requires_grad = False
+                
+            # Unfreeze embedding layer
+            for param in self.__model.embeddings.parameters():
                 param.requires_grad = True
 
     @property
