@@ -20,7 +20,7 @@ class DataModule(L.LightningDataModule):
             file_list = sorted([str(p) for p in Path(self.data_dir).glob("*.json")])
 
             # > Split the file list into training and validation sets
-            train_size = 13000
+            train_size = 1300
             # val_size = len(file_list) - train_size
             generator = torch.Generator().manual_seed(self.config.seed)
             indices = torch.randperm(len(file_list), generator=generator).tolist()
@@ -30,7 +30,7 @@ class DataModule(L.LightningDataModule):
             val_list = [file_list[i] for i in val_indices]
             # train_list, val_list = random_split(
             #     file_list,
-            #     [13000, 2000],
+            #     [1300, 200],
             #     generator=torch.Generator().manual_seed(self.config.seed),
             # )
             self.train_dataset = CustomDataset(
