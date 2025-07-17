@@ -31,6 +31,15 @@ class ControlModule(nn.Module):
             padding=config.conv_pool.padding,
         )
 
+        self.transformer_layer = nn.TransformerEncoderLayer(
+            d_model=config.conv_pool.out_channels,
+            nhead=config.transformer_layer.nhead,
+            dim_feedforward=config.transformer_layer.dim_feedforward,
+            dropout=config.transformer_layer.dropout,
+            activation=config.transformer_layer.activation,
+            batch_first=True,
+        )
+
         # self.addressee_predictor = nn.Linear(
         #     self.transformer_encoder.dim, config.num_speakers
         # )
@@ -67,7 +76,8 @@ class ControlModule(nn.Module):
             nn.ReLU(),
         )
         self.ai_addressee_predictor_linear = nn.Linear(
-            config.addressee_predictor.hidden_dim, num_speakers + 2  # + 2 for 'NA' and 'All'
+            config.addressee_predictor.hidden_dim,
+            num_speakers + 2,  # + 2 for 'NA' and 'All'
         )
 
     def forward(self, x, dialog_memory):
@@ -75,7 +85,7 @@ class ControlModule(nn.Module):
         x: (1, T), Speaker and content tokens
         dialog_memory: (L, D), D is dim of cls token(dim of transformer encoder output)
         """
-        
+
         # > Ensure x is on the same device as model
         x = x.to(self.transformer_encoder.device)
 
@@ -97,9 +107,18 @@ class ControlModule(nn.Module):
 
         out = out_dialog.transpose(1, 2)  # (1, D+hidden_dim, L)
         out = self.conv_pool(out)  # (1, 512, L)
-        out = F.adaptive_avg_pool1d(out, 1).squeeze(
-            -1
-        )  # Global average pooling. (1, 512)
+
+        # out = F.adaptive_avg_pool1d(out, 1).squeeze(
+        #     -1
+        # )  # Global average pooling. (1, 512)
+
+        # > Add all-zero 512 dim embedding at the end of 'out'
+        out = F.pad(out, (0, 1, 0, 0), value=0)  #  (1, 512, L+1)
+
+        out = out.transpose(1, 2)  # (1, L+1, 512)
+        out = self.transformer_layer(out)  # (1, L+1, 512)
+        out = out.transpose(1, 2)  # (1, 512, L+1)
+        out = out[:, :, -1]  # (1, 512)
 
         out = torch.concat((out, cls), dim=-1)  # (1, 512 + D)
         addressee_emb = self.addressee_predictor_hidden(out)  # (1, hidden_dim)
