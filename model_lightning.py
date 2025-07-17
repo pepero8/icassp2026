@@ -178,7 +178,7 @@ class LitSAASRControl(L.LightningModule):
             
             batch_pred_addressee = batch_pred_addressee + pred_addressee
             batch_pred_ai_addressee = batch_pred_ai_addressee + pred_ai_addressee
-            batch_pred_control_token = batch_pred_control_token + pred_control_token_list
+            batch_pred_control_token = [a + b for a, b in zip(batch_pred_control_token, pred_control_token_list)]
 
         # batch_loss = batch_loss / (num_samples if num_samples > 0 else 1)
         batch_addr_loss = batch_addr_loss / (num_samples if num_samples > 0 else 1)
@@ -193,7 +193,7 @@ class LitSAASRControl(L.LightningModule):
         batch_acc_addressee = batch_pred_addressee / (num_samples if num_samples > 0 else 1)
         batch_acc_ai_addressee = batch_pred_ai_addressee / (num_samples if num_samples > 0 else 1)
         # batch_acc_control_token = batch_pred_control_token / (num_samples if num_samples > 0 else 1)
-        batch_acc_control_token = [ctrl / (batch_control_token_label_num[i] if batch_control_token_label_num[i] > 0 else 0) for i, ctrl in enumerate(batch_pred_control_token)]
+        batch_acc_control_token = [ctrl / (batch_control_token_label_num[i] if batch_control_token_label_num[i] > 0 else 1) for i, ctrl in enumerate(batch_pred_control_token)]
 
         self.log("val_loss", batch_loss, prog_bar=True, batch_size=len(sample))
         self.log("val_acc_addressee", batch_acc_addressee, prog_bar=True, batch_size=len(sample))
