@@ -141,26 +141,26 @@ class ControlModule(nn.Module):
             out = out_dialog  # (1, 1, D+hidden_dim)
             # out = cls.unsqueeze(1)  # (1, 1, D)
 
-        out = out.transpose(1, 2)  # (1, D+hidden_dim, L)
-        # todo: make out shape (1, D+hidden_dim)
-        out = F.adaptive_avg_pool1d(out, 1).squeeze(
-            -1
-        )  # Global average pooling. (1, D+hidden_dim)
+        # out = out.transpose(1, 2)  # (1, D+hidden_dim, L)
+        # # todo: make out shape (1, D+hidden_dim)
+        # out = F.adaptive_avg_pool1d(out, 1).squeeze(
+        #     -1
+        # )  # Global average pooling. (1, D+hidden_dim)
 
-        control_token = self.control_predictor_linear(
-            out
-        )  # raw logits(linear의 output), (1, 4)
-        ai_addressee_emb = self.ai_addressee_predictor_hidden(out)
-        ai_addressee = self.ai_addressee_predictor_linear(
-            ai_addressee_emb
-        )  # (1, num_speakers + 1)
+        # control_token = self.control_predictor_linear(
+        #     out
+        # )  # raw logits(linear의 output), (1, 4)
+        # ai_addressee_emb = self.ai_addressee_predictor_hidden(out)
+        # ai_addressee = self.ai_addressee_predictor_linear(
+        #     ai_addressee_emb
+        # )  # (1, num_speakers + 1)
 
         return (
             addressee,
             addressee_emb,
-            ai_addressee,
-            ai_addressee_emb,
-            control_token,
+            # ai_addressee,
+            # ai_addressee_emb,
+            # control_token,
             cls,
         )
 
