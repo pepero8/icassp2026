@@ -157,14 +157,14 @@ class LitSAASRControl(L.LightningModule):
         # batch_ctrl_loss = torch.tensor(0.0, device=self.device)
 
         batch_pred_addressee = 0
-        batch_pred_ai_addressee = 0
+        # batch_pred_ai_addressee = 0
         # batch_pred_control_token = 0
-        batch_pred_control_token = [0] * len(self.control_token_labels)
-        batch_control_token_label_num = [0] * len(self.control_token_labels)
+        # batch_pred_control_token = [0] * len(self.control_token_labels)
+        # batch_control_token_label_num = [0] * len(self.control_token_labels)
 
         num_samples = len(sample)
         for chunk in sample:
-            addressee, ai_addressee, control_token = self.model(
+            addressee = self.model(
                 chunk,
                 self.addressee_to_idx,
                 self.ai_addressee_to_idx,
@@ -181,16 +181,12 @@ class LitSAASRControl(L.LightningModule):
                     chunk.ai_addressee,
                     chunk.control_token,
                 )
-                pred_addressee, pred_ai_addressee, pred_control_token_list = (
-                    self.check_predictions(
-                        addressee,
-                        ai_addressee,
-                        control_token,
-                        chunk.addressee,
-                        chunk.ai_addressee,
-                        chunk.control_token,
-                        batch_control_token_label_num,
-                    )
+                pred_addressee = self.check_predictions(
+                    addressee,
+                    chunk.addressee,
+                    chunk.ai_addressee,
+                    chunk.control_token,
+                    # batch_control_token_label_num,
                 )
             except Exception as e:
                 print(f"Error in loss calculation in validation step: {e}")
@@ -203,10 +199,10 @@ class LitSAASRControl(L.LightningModule):
             # batch_ctrl_loss = batch_ctrl_loss + control_token_loss
 
             batch_pred_addressee = batch_pred_addressee + pred_addressee
-            batch_pred_ai_addressee = batch_pred_ai_addressee + pred_ai_addressee
-            batch_pred_control_token = [
-                a + b for a, b in zip(batch_pred_control_token, pred_control_token_list)
-            ]
+            # batch_pred_ai_addressee = batch_pred_ai_addressee + pred_ai_addressee
+            # batch_pred_control_token = [
+            #     a + b for a, b in zip(batch_pred_control_token, pred_control_token_list)
+            # ]
 
         # batch_loss = batch_loss / (num_samples if num_samples > 0 else 1)
         batch_addr_loss = batch_addr_loss / (num_samples if num_samples > 0 else 1)
@@ -222,19 +218,19 @@ class LitSAASRControl(L.LightningModule):
         batch_acc_addressee = batch_pred_addressee / (
             num_samples if num_samples > 0 else 1
         )
-        batch_acc_ai_addressee = batch_pred_ai_addressee / (
-            num_samples if num_samples > 0 else 1
-        )
+        # batch_acc_ai_addressee = batch_pred_ai_addressee / (
+        #     num_samples if num_samples > 0 else 1
+        # )
         # batch_acc_control_token = batch_pred_control_token / (num_samples if num_samples > 0 else 1)
-        batch_acc_control_token = [
-            ctrl
-            / (
-                batch_control_token_label_num[i]
-                if batch_control_token_label_num[i] > 0
-                else 1
-            )
-            for i, ctrl in enumerate(batch_pred_control_token)
-        ]
+        # batch_acc_control_token = [
+        #     ctrl
+        #     / (
+        #         batch_control_token_label_num[i]
+        #         if batch_control_token_label_num[i] > 0
+        #         else 1
+        #     )
+        #     for i, ctrl in enumerate(batch_pred_control_token)
+        # ]
 
         self.log("val_loss", batch_loss, prog_bar=True, batch_size=len(sample))
         self.log(
@@ -243,37 +239,37 @@ class LitSAASRControl(L.LightningModule):
             prog_bar=True,
             batch_size=len(sample),
         )
-        self.log(
-            "val_acc_ai_addressee",
-            batch_acc_ai_addressee,
-            prog_bar=True,
-            batch_size=len(sample),
-        )
-        # self.log("val_acc_control_token", batch_acc_control_token, prog_bar=True, batch_size=len(sample))
-        self.log(
-            f"val_acc_{self.control_token_labels[0]}",
-            batch_acc_control_token[0],
-            prog_bar=True,
-            batch_size=len(sample),
-        )
-        self.log(
-            f"val_acc_{self.control_token_labels[1]}",
-            batch_acc_control_token[1],
-            prog_bar=True,
-            batch_size=len(sample),
-        )
-        self.log(
-            f"val_acc_{self.control_token_labels[2]}",
-            batch_acc_control_token[2],
-            prog_bar=True,
-            batch_size=len(sample),
-        )
-        self.log(
-            f"val_acc_{self.control_token_labels[3]}",
-            batch_acc_control_token[3],
-            prog_bar=True,
-            batch_size=len(sample),
-        )
+        # self.log(
+        #     "val_acc_ai_addressee",
+        #     batch_acc_ai_addressee,
+        #     prog_bar=True,
+        #     batch_size=len(sample),
+        # )
+        # # self.log("val_acc_control_token", batch_acc_control_token, prog_bar=True, batch_size=len(sample))
+        # self.log(
+        #     f"val_acc_{self.control_token_labels[0]}",
+        #     batch_acc_control_token[0],
+        #     prog_bar=True,
+        #     batch_size=len(sample),
+        # )
+        # self.log(
+        #     f"val_acc_{self.control_token_labels[1]}",
+        #     batch_acc_control_token[1],
+        #     prog_bar=True,
+        #     batch_size=len(sample),
+        # )
+        # self.log(
+        #     f"val_acc_{self.control_token_labels[2]}",
+        #     batch_acc_control_token[2],
+        #     prog_bar=True,
+        #     batch_size=len(sample),
+        # )
+        # self.log(
+        #     f"val_acc_{self.control_token_labels[3]}",
+        #     batch_acc_control_token[3],
+        #     prog_bar=True,
+        #     batch_size=len(sample),
+        # )
 
         return batch_loss
 
@@ -325,12 +321,12 @@ class LitSAASRControl(L.LightningModule):
     def check_predictions(
         self,
         addressee_hat,
-        ai_addressee_hat,
-        control_token_hat,
+        # ai_addressee_hat,
+        # control_token_hat,
         addressee,
         ai_addressee,
         control_token,
-        batch_control_token_label_num,
+        # batch_control_token_label_num,
     ):
         """
         addressee_hat: (1, num_speakers)
@@ -344,16 +340,16 @@ class LitSAASRControl(L.LightningModule):
         addressee_hat_idx = torch.argmax(addressee_hat, dim=1).item()
         correct_addressee = 1 if addressee_idx == addressee_hat_idx else 0
 
-        ai_addressee_idx = self.ai_addressee_to_idx[ai_addressee]
-        ai_addressee_hat_idx = torch.argmax(ai_addressee_hat, dim=1).item()
-        correct_ai_addressee = 1 if ai_addressee_idx == ai_addressee_hat_idx else 0
+        # ai_addressee_idx = self.ai_addressee_to_idx[ai_addressee]
+        # ai_addressee_hat_idx = torch.argmax(ai_addressee_hat, dim=1).item()
+        # correct_ai_addressee = 1 if ai_addressee_idx == ai_addressee_hat_idx else 0
 
-        control_token_idx = self.control_token_to_idx[control_token]
-        control_token_hat_idx = torch.argmax(control_token_hat, dim=1).item()
-        # correct_control_token = 1 if control_token_idx == control_token_hat_idx else 0
-        batch_control_token_label_num[control_token_idx] += 1
-        correct_control_token = [0] * len(self.control_token_labels)
-        if control_token_idx == control_token_hat_idx:
-            correct_control_token[control_token_idx] = 1
+        # control_token_idx = self.control_token_to_idx[control_token]
+        # control_token_hat_idx = torch.argmax(control_token_hat, dim=1).item()
+        # # correct_control_token = 1 if control_token_idx == control_token_hat_idx else 0
+        # batch_control_token_label_num[control_token_idx] += 1
+        # correct_control_token = [0] * len(self.control_token_labels)
+        # if control_token_idx == control_token_hat_idx:
+        #     correct_control_token[control_token_idx] = 1
 
-        return correct_addressee, correct_ai_addressee, correct_control_token
+        return correct_addressee
