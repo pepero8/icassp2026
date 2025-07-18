@@ -14,6 +14,7 @@ from lightning.pytorch.loggers import TensorBoardLogger
 
 app = typer.Typer(pretty_exceptions_enable=False)
 
+
 @app.command()
 def main(
     cfg: Annotated[str, typer.Argument(help="Path to the config file")],
@@ -46,12 +47,19 @@ def main(
     #     callbacks=[early_stop_callback],
     #     strategy=ddp_strategy,
     # ) # ? for testing
-    
+
     # > Generate version based on current timestamp
     current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
     # > Create a logger instance
-    logger = TensorBoardLogger(config.default_root_dir, version=current_time, name="icassp2026")
-    checkpoint_callback = ModelCheckpoint(save_top_k=5, monitor="val_loss", mode="min", filename="epoch{epoch:02d}-val_loss:{val_loss:.4f}") # 기본적으로 Trainer.log_dir에 저장됨
+    logger = TensorBoardLogger(
+        config.default_root_dir, version=current_time, name="icassp2026"
+    )
+    checkpoint_callback = ModelCheckpoint(
+        save_top_k=5,
+        monitor="val_loss",
+        mode="min",
+        filename="{epoch:02d}-val_loss:{val_loss:.4f}",
+    )  # 기본적으로 Trainer.log_dir에 저장됨
 
     trainer = L.Trainer(
         num_sanity_val_steps=1,
