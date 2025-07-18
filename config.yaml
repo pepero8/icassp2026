@@ -36,6 +36,7 @@ control_module:
     padding: "same"
     stride: 1
   transformer_layer:
+    num_layers: 2
     nhead: 4
     dim_feedforward: 1024
     dropout: 0.1

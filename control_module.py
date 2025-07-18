@@ -31,14 +31,19 @@ class ControlModule(nn.Module):
             padding=config.conv_pool.padding,
         )
 
-        self.transformer_layer = nn.TransformerEncoderLayer(
-            d_model=config.conv_pool.out_channels,
-            nhead=config.transformer_layer.nhead,
-            dim_feedforward=config.transformer_layer.dim_feedforward,
-            dropout=config.transformer_layer.dropout,
-            activation=config.transformer_layer.activation,
-            batch_first=True,
-        )
+        self.transformer_layer = nn.Sequential()
+        for i in range(config.transformer_layer.num_layers):
+            self.transformer_layer.add_module(
+                f"transformer_layer_{i}",
+                nn.TransformerEncoderLayer(
+                    d_model=config.conv_pool.out_channels,
+                    nhead=config.transformer_layer.nhead,
+                    dim_feedforward=config.transformer_layer.dim_feedforward,
+                    dropout=config.transformer_layer.dropout,
+                    activation=config.transformer_layer.activation,
+                    batch_first=True,
+                ),
+            )
 
         # self.addressee_predictor = nn.Linear(
         #     self.transformer_encoder.dim, config.num_speakers
