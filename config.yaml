@@ -42,7 +42,7 @@ control_module:
     dropout: 0.1
     activation: "relu"
   addressee_predictor:
-    hidden_dim: 256
+    hidden_dim: 32 # 256
   control_predictor:
     cross_attention:
       # query_dim:

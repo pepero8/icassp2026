@@ -16,34 +16,34 @@ class ControlModule(nn.Module):
         self.cross_attention = CrossAttention(
             query_dim=self.transformer_encoder.dim,
             key_dim=self.transformer_encoder.dim
-            + config.addressee_predictor.hidden_dim,
+            + config.addressee_predictor.hidden_dim * 2,
             value_dim=self.transformer_encoder.dim
-            + config.addressee_predictor.hidden_dim,
+            + config.addressee_predictor.hidden_dim * 2,
             **config.cross_attention,
         )
         self.conv_pool = nn.Conv1d(
             # config.conv_pool.feature_dim,
             in_channels=self.transformer_encoder.dim
-            + config.addressee_predictor.hidden_dim,
+            + config.addressee_predictor.hidden_dim * 2,
             out_channels=config.conv_pool.out_channels,
             kernel_size=config.conv_pool.kernel_size,
             stride=config.conv_pool.stride,
             padding=config.conv_pool.padding,
         )
 
-        self.transformer_layer = nn.Sequential()
-        for i in range(config.transformer_layer.num_layers):
-            self.transformer_layer.add_module(
-                f"transformer_layer_{i}",
-                nn.TransformerEncoderLayer(
-                    d_model=config.conv_pool.out_channels,
-                    nhead=config.transformer_layer.nhead,
-                    dim_feedforward=config.transformer_layer.dim_feedforward,
-                    dropout=config.transformer_layer.dropout,
-                    activation=config.transformer_layer.activation,
-                    batch_first=True,
-                ),
-            )
+        # self.transformer_layer = nn.Sequential()
+        # for i in range(config.transformer_layer.num_layers):
+        #     self.transformer_layer.add_module(
+        #         f"transformer_layer_{i}",
+        #         nn.TransformerEncoderLayer(
+        #             d_model=config.conv_pool.out_channels,
+        #             nhead=config.transformer_layer.nhead,
+        #             dim_feedforward=config.transformer_layer.dim_feedforward,
+        #             dropout=config.transformer_layer.dropout,
+        #             activation=config.transformer_layer.activation,
+        #             batch_first=True,
+        #         ),
+        #     )
 
         # self.addressee_predictor = nn.Linear(
         #     self.transformer_encoder.dim, config.num_speakers
@@ -64,18 +64,19 @@ class ControlModule(nn.Module):
             query_dim=self.transformer_encoder.dim
             + config.addressee_predictor.hidden_dim,
             key_dim=self.transformer_encoder.dim
-            + config.addressee_predictor.hidden_dim,
+            + config.addressee_predictor.hidden_dim * 2,
             value_dim=self.transformer_encoder.dim
-            + config.addressee_predictor.hidden_dim,
+            + config.addressee_predictor.hidden_dim * 2,
             **config.control_predictor.cross_attention,
         )  # ? Control net에 해당
 
         self.control_predictor_linear = nn.Linear(
-            self.transformer_encoder.dim + config.addressee_predictor.hidden_dim, 4
+            self.transformer_encoder.dim + config.addressee_predictor.hidden_dim * 2, 4
         )
         self.ai_addressee_predictor_hidden = nn.Sequential(
             nn.Linear(
-                self.transformer_encoder.dim + config.addressee_predictor.hidden_dim,
+                self.transformer_encoder.dim
+                + config.addressee_predictor.hidden_dim * 2,
                 config.addressee_predictor.hidden_dim,
             ),
             nn.ReLU(),
@@ -99,31 +100,38 @@ class ControlModule(nn.Module):
         if dialog_memory.numel() != 0:
             out_dialog, _ = self.cross_attention(
                 query=cls.unsqueeze(1),  # cls.unsqueeze: (1, 1, D)
-                key=dialog_memory.unsqueeze(0),  # (1, L, D+hidden_dim)
-                value=dialog_memory.unsqueeze(0),  # (1, L, D+hidden_dim)
-            )  # (1, L, D+hidden_dim)
+                key=dialog_memory.unsqueeze(0),  # (1, L, D + 2*hidden_dim)
+                value=dialog_memory.unsqueeze(0),  # (1, L, D + 2*hidden_dim)
+            )  # (1, L, D + 2*hidden_dim)
         else:
             zero_addressee_emb = torch.zeros(
                 (1, self.config.addressee_predictor.hidden_dim), device=x.device
             )
-            out_dialog = torch.cat((cls, zero_addressee_emb), dim=-1).unsqueeze(
+            zero_speaker_emb = torch.zeros(
+                (1, self.config.addressee_predictor.hidden_dim), device=x.device
+            )
+            out_dialog = torch.cat(
+                (zero_addressee_emb, cls, zero_speaker_emb), dim=-1
+            ).unsqueeze(
                 1
-            )  # (1, 1, D+hidden_dim)
+            )  # (1, 1, D + 2*hidden_dim)
 
-        out = out_dialog.transpose(1, 2)  # (1, D+hidden_dim, L)
+        out = out_dialog.transpose(1, 2)  # (1, D + 2*hidden_dim, L)
         out = self.conv_pool(out)  # (1, 512, L)
 
-        # out = F.adaptive_avg_pool1d(out, 1).squeeze(
-        #     -1
-        # )  # Global average pooling. (1, 512)
+        out = F.adaptive_avg_pool1d(out, 1).squeeze(
+            -1
+        )  # Global average pooling. (1, 512)
 
-        # > Add all-zero 512 dim embedding at the end of 'out'
-        out = F.pad(out, (0, 1, 0, 0), value=0)  #  (1, 512, L+1)
+        # ========================== transformer layer로 변경 ==========================
+        # # > Add all-zero 512 dim embedding at the end of 'out'
+        # out = F.pad(out, (0, 1, 0, 0), value=0)  #  (1, 512, L+1)
 
-        out = out.transpose(1, 2)  # (1, L+1, 512)
-        out = self.transformer_layer(out)  # (1, L+1, 512)
-        out = out.transpose(1, 2)  # (1, 512, L+1)
-        out = out[:, :, -1]  # (1, 512)
+        # out = out.transpose(1, 2)  # (1, L+1, 512)
+        # out = self.transformer_layer(out)  # (1, L+1, 512)
+        # out = out.transpose(1, 2)  # (1, 512, L+1)
+        # out = out[:, :, -1]  # (1, 512)
+        # ========================== transformer layer로 변경 ==========================
 
         out = torch.concat((out, cls), dim=-1)  # (1, 512 + D)
         addressee_emb = self.addressee_predictor_hidden(out)  # (1, hidden_dim)
@@ -137,20 +145,20 @@ class ControlModule(nn.Module):
                 query=torch.cat((cls, addressee_emb), dim=-1).unsqueeze(
                     1
                 ),  # (1, 1, D+hidden_dim)
-                key=dialog_memory.unsqueeze(0),  # (1, L, D+hidden_dim)
+                key=dialog_memory.unsqueeze(0),  # (1, L, D + 2*hidden_dim)
                 # key=out_dialog,
-                value=dialog_memory.unsqueeze(0),  # (1, L, D+hidden_dim)
+                value=dialog_memory.unsqueeze(0),  # (1, L, D + 2*hidden_dim)
                 # value=out_dialog,
-            )  # (1, L, D+hidden_dim)
+            )  # (1, L, D + 2*hidden_dim)
         else:
-            out = out_dialog  # (1, 1, D+hidden_dim)
+            out = out_dialog  # (1, 1, D + 2*hidden_dim)
             # out = cls.unsqueeze(1)  # (1, 1, D)
 
-        out = out.transpose(1, 2)  # (1, D+hidden_dim, L)
-        # todo: make out shape (1, D+hidden_dim)
+        out = out.transpose(1, 2)  # (1, D + 2*hidden_dim, L)
+        # todo: make out shape (1, D + 2*hidden_dim)
         out = F.adaptive_avg_pool1d(out, 1).squeeze(
             -1
-        )  # Global average pooling. (1, D+hidden_dim)
+        )  # Global average pooling. (1, D + 2*hidden_dim)
 
         control_token = self.control_predictor_linear(
             out
