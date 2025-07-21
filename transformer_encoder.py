@@ -14,10 +14,10 @@ class TransformerEncoder(nn.Module):
             self.__tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
             special_tokens = [
-                "Speaker_A",
-                "Speaker_B",
-                "Speaker_C",
-                "Speaker_D",
+                "<Speaker_A>",
+                "<Speaker_B>",
+                "<Speaker_C>",
+                "<Speaker_D>",
                 "<silence>",
             ]
             self.__tokenizer.add_tokens(special_tokens)
@@ -25,7 +25,7 @@ class TransformerEncoder(nn.Module):
 
             for param in self.__model.parameters():
                 param.requires_grad = False
-                
+
             # Unfreeze embedding layer
             for param in self.__model.embeddings.parameters():
                 param.requires_grad = True
@@ -37,7 +37,7 @@ class TransformerEncoder(nn.Module):
     @property
     def tokenizer(self):
         return self.__tokenizer
-    
+
     @property
     def device(self):
         return self.__model.device
