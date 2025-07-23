@@ -92,6 +92,7 @@ class LitSAASRControl(L.LightningModule):
                 chunk,
                 self.addressee_to_idx,
                 self.ai_addressee_to_idx,
+                self.ai_addressee_labels,
                 self.control_token_to_idx,
                 mode="train",
             )
@@ -170,6 +171,7 @@ class LitSAASRControl(L.LightningModule):
                 chunk,
                 self.addressee_to_idx,
                 self.ai_addressee_to_idx,
+                self.ai_addressee_labels,
                 self.control_token_to_idx,
                 mode="valid",
             )
