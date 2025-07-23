@@ -30,7 +30,7 @@ def main(
     early_stop_callback = EarlyStopping(
         monitor="val_loss",
         min_delta=0.00,
-        patience=3,
+        patience=7,
         verbose=False,
         mode="min",
         check_finite=True,
@@ -83,4 +83,4 @@ if __name__ == "__main__":
     app()
     # typer.run(main)
 
-# CUDA_VISIBLE_DEVICES=0 CUDA_LAUNCH_BLOCKING=1 python train.py config.yaml
+# CUDA_VISIBLE_DEVICES=3 python train.py config.yaml
