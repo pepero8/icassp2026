@@ -166,7 +166,7 @@ class ControlModule(nn.Module):
         ai_addressee_emb = self.ai_addressee_predictor_hidden(out)
         ai_addressee = self.ai_addressee_predictor_linear(
             ai_addressee_emb
-        )  # (1, num_speakers + 1)
+        )  # (1, num_speakers + 2)
 
         return (
             addressee,
