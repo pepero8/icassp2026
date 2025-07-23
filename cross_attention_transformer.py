@@ -75,6 +75,7 @@ class CrossAttention(nn.Module):
         """
         batch_size, query_len, _ = query.size()
         key_len = key.size(1)
+        value_len = value.size(1)
 
         # Linear projections
         Q = self.query_proj(query)  # (batch_size, query_len, embed_dim)
@@ -84,7 +85,7 @@ class CrossAttention(nn.Module):
         # Reshape for multi-head attention
         Q = Q.view(batch_size, query_len, self.num_heads, self.head_dim).transpose(1, 2)
         K = K.view(batch_size, key_len, self.num_heads, self.head_dim).transpose(1, 2)
-        V = V.view(batch_size, key_len, self.num_heads, self.head_dim).transpose(1, 2)
+        V = V.view(batch_size, value_len, self.num_heads, self.head_dim).transpose(1, 2)
         # Shape: (batch_size, num_heads, seq_len, head_dim)
 
         # Compute attention scores
@@ -111,21 +112,34 @@ class CrossAttention(nn.Module):
 
         # Apply softmax to get attention weights
         attn_weights = F.softmax(attn_scores, dim=-1)
-        attn_weights = self.dropout(attn_weights)
+        attn_weights = self.dropout(
+            attn_weights
+        )  # (batch_size, num_heads, query_len, key_len)
+        attn_weights = attn_weights.squeeze(2)  # remove query dimension
+        attn_weights = attn_weights.unsqueeze(-1)  # (batch_size, num_heads, key_len, 1)
+        attn_weights = attn_weights.expand(
+            -1, -1, -1, self.head_dim
+        )  # (batch_size, num_heads, key_len, head_dim)
 
         # Apply attention to values
-        attn_output = torch.matmul(attn_weights, V)
-        # Shape: (batch_size, num_heads, query_len, head_dim)
+        # attn_output = torch.matmul(attn_weights, V)
+        # print(attn_weights.transpose(-2, -1).shape)
+        # print(V.shape)
+        # attn_output = torch.matmul(attn_weights.transpose(-2, -1), V)
+        attn_output = V * attn_weights
+        print(attn_output.shape)
+        # Shape: (batch_size, num_heads, key_len, head_dim)
 
         # Concatenate heads
         attn_output = (
-            attn_output.transpose(1, 2)
-            .contiguous()
-            .view(batch_size, query_len, self.embed_dim)
+            attn_output.transpose(1, 2).contiguous()
+            # .view(batch_size, query_len, self.embed_dim)
+            .view(batch_size, value_len, self.embed_dim)
         )
 
         # Final output projection
         output = self.out_proj(attn_output)
+        # output = attn_output
 
         return output, attn_weights
 
@@ -386,3 +400,23 @@ class PositionalEncoding(nn.Module):
         """
         x = x + self.pe[: x.size(1), :].transpose(0, 1)
         return self.dropout(x)
+
+
+if __name__ == "__main__":
+    # Example usage
+    model = CrossAttention(
+        query_dim=768,
+        key_dim=768 + 64,
+        value_dim=768 + 64,
+        embed_dim=768 + 64,
+        num_heads=8,
+        dropout=0.1,
+        bias=True,
+    )
+
+    query = torch.randn(2, 1, 768)
+    key = torch.randn(2, 10, 768 + 64)
+    value = torch.randn(2, 10, 768 + 64)
+
+    output, _ = model(query=query, key=key, value=value)
+    print(output.shape)
