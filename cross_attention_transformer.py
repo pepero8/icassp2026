@@ -127,7 +127,7 @@ class CrossAttention(nn.Module):
         # print(V.shape)
         # attn_output = torch.matmul(attn_weights.transpose(-2, -1), V)
         attn_output = V * attn_weights
-        print(attn_output.shape)
+        # print(attn_output.shape)
         # Shape: (batch_size, num_heads, key_len, head_dim)
 
         # Concatenate heads

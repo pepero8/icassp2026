@@ -63,7 +63,7 @@ class SAASRControl(nn.Module):
         # target_control_token_idx = (
         #     control_token_to_idx[target_control_token] if control_token_to_idx else None
         # )
-        speaker_idx = addressee_to_idx[cur_speaker] if addressee_to_idx else None
+        # speaker_idx = addressee_to_idx[cur_speaker] if addressee_to_idx else None
 
         (
             addressee,
@@ -90,12 +90,13 @@ class SAASRControl(nn.Module):
         else:
             addressee_label = addressee.argmax(dim=1)
 
-            ai_addressee_idx = ai_addressee.argmax(dim=1)
-            ai_addressee_label = (
-                ai_addressee_labels[ai_addressee_idx.item()]
-                if ai_addressee_labels
-                else None
-            )
+            ai_addressee_label = x.ai_addressee
+            # ai_addressee_idx = ai_addressee.argmax(dim=1)
+            # ai_addressee_label = (
+            #     ai_addressee_labels[ai_addressee_idx.item()]
+            #     if ai_addressee_labels
+            #     else None
+            # )
             if ai_addressee_label == "NA":
                 ai_addressee_label_idx = self.addressee_embedding.num_embeddings - 1
             else:
