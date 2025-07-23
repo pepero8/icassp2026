@@ -26,8 +26,8 @@ control_module:
     # query_dim:
     # key_dim:
     # value_dim:
-    embed_dim: 384 # FYI) BERT uses 768 for attention embd
-    num_heads: 1
+    embed_dim: 768 # 384 # FYI) BERT uses 768 for attention embd
+    num_heads: 8
     dropout: 0.1
     bias: true
   conv_pool:
