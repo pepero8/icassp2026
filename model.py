@@ -19,15 +19,18 @@ class SAASRControl(nn.Module):
         self.dialog_memory.requires_grad = False
 
         self.addressee_embedding = nn.Embedding(
-            num_embeddings=self.config.num_speakers + 2,  # +2 for 'assistant' and 'all'
+            # num_embeddings=self.config.num_speakers + 2,  # +2 for 'assistant' and 'all'
+            num_embeddings=self.config.num_speakers
+            + 3,  # +2 for 'assistant' and 'all' and 'NA'
             embedding_dim=self.config.control_module.addressee_predictor.hidden_dim,
-        )  # (num_speakers+2, hidden_dim)
+        )  # (num_speakers+3, hidden_dim)
 
     def forward(
         self,
         x,
         addressee_to_idx=None,
         ai_addressee_to_idx=None,
+        ai_addressee_labels=None,
         control_token_to_idx=None,
         mode=None,
     ):
@@ -47,10 +50,20 @@ class SAASRControl(nn.Module):
         target_addressee_idx = (
             addressee_to_idx[target_addressee] if addressee_to_idx else None
         )
-        target_ai_addressee_idx = (
-            ai_addressee_to_idx[target_ai_addressee] if ai_addressee_to_idx else None
-        )
-        # target_control_token_idx = control_token_to_idx[target_control_token] if control_token_to_idx else None
+
+        if target_ai_addressee == "NA":
+            target_ai_addressee_idx = self.addressee_embedding.num_embeddings - 1
+        else:
+            target_ai_addressee_idx = (
+                ai_addressee_to_idx[target_ai_addressee]
+                if ai_addressee_to_idx
+                else None
+            )
+
+        # target_control_token_idx = (
+        #     control_token_to_idx[target_control_token] if control_token_to_idx else None
+        # )
+        speaker_idx = addressee_to_idx[cur_speaker] if addressee_to_idx else None
 
         (
             addressee,
@@ -76,15 +89,31 @@ class SAASRControl(nn.Module):
 
         else:
             addressee_label = addressee.argmax(dim=1)
-            # ai_addressee_label = ai_addressee.argmax(dim=1)
+
+            ai_addressee_idx = ai_addressee.argmax(dim=1)
             ai_addressee_label = (
-                torch.tensor(target_ai_addressee_idx).unsqueeze(0).to(cls.device)
+                ai_addressee_labels[ai_addressee_idx.item()]
+                if ai_addressee_labels
+                else None
+            )
+            if ai_addressee_label == "NA":
+                ai_addressee_label_idx = self.addressee_embedding.num_embeddings - 1
+            else:
+                ai_addressee_label_idx = (
+                    ai_addressee_to_idx[ai_addressee_label]
+                    if ai_addressee_to_idx
+                    else None
+                )
+
+            ai_addressee_label_idx = (
+                torch.tensor(ai_addressee_label_idx).unsqueeze(0).to(cls.device)
             )  # (1, )
+
             addressee_embd = self.addressee_embedding(
                 addressee_label
             )  # (1, hidden_dim)
             ai_addressee_embd = self.addressee_embedding(
-                ai_addressee_label
+                ai_addressee_label_idx
             )  # (1, hidden_dim)
 
         # > update dialog memory with cls token and addressee embedding
