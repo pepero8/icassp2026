@@ -144,10 +144,10 @@ class LitSAASRControl(L.LightningModule):
         return batch_loss
 
     def validation_step(self, batch: TrainBatch, batch_idx):
-        # ! dialogue memory가 남아있는 상태에서 validation을 하면 안됨
+        # ! dialogue memory가 남아있는 상태에서 validation을 시작하면 안됨
         sample = (
             batch.sample
-        )  # list of 64 Chunk instances(can be <64 if last chunk set of dialogue)
+        )  # list of 256 Chunk instances(can be <64 if last chunk set of dialogue)
 
         if batch.reset_dialog_memory:
             self.model.reset_dialog_memory()
@@ -166,7 +166,9 @@ class LitSAASRControl(L.LightningModule):
         batch_ai_addressee_label_num = [0] * len(self.ai_addressee_labels)
 
         num_samples = len(sample)
+        prev_speaker = None
         for chunk in sample:
+            speaker = chunk.tape.split()[0].strip("<>")
             addressee, ai_addressee, control_token = self.model(
                 chunk,
                 self.addressee_to_idx,
@@ -175,7 +177,23 @@ class LitSAASRControl(L.LightningModule):
                 self.control_token_to_idx,
                 mode="valid",
             )
+
+            # > Calculate loss only at the end of each speaker's turn or when it is assistant's turn
+            if (
+                prev_speaker != speaker
+            ):  # NOTE: it doesn't handle the case where first chunk is a new speaker's starting phrase
+                prev_speaker = speaker
+                calc_loss = True
+            elif chunk.tape.count("Speaker") > 1 or chunk.control_token != "C.LISTEN":
+                calc_loss = True
+            else:
+                calc_loss = False
+
             # addressee, ai_addressee, control_token = self.model(chunk)
+
+            if not calc_loss:
+                continue
+
             try:
                 addressee_loss, ai_addressee_loss, control_token_loss = (
                     self.compute_loss(
