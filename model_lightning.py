@@ -165,10 +165,17 @@ class LitSAASRControl(L.LightningModule):
         batch_control_token_label_num = [0] * len(self.control_token_labels)
         batch_ai_addressee_label_num = [0] * len(self.ai_addressee_labels)
 
-        num_samples = len(sample)
-        prev_speaker = None
-        for chunk in sample:
+        # num_samples = len(sample)
+        num_samples = 0  # > count number of samples that have loss calculated
+        # prev_speaker = None
+        for i, chunk in enumerate(sample):
             speaker = chunk.tape.split()[0].strip("<>")
+            next_speaker = (
+                sample[i + 1].tape.split()[0].strip("<>")
+                if i + 1 < len(sample)
+                else speaker
+            )
+
             addressee, ai_addressee, control_token = self.model(
                 chunk,
                 self.addressee_to_idx,
@@ -180,9 +187,11 @@ class LitSAASRControl(L.LightningModule):
 
             # > Calculate loss only at the end of each speaker's turn or when it is assistant's turn
             if (
-                prev_speaker != speaker
-            ):  # NOTE: it doesn't handle the case where first chunk is a new speaker's starting phrase
-                prev_speaker = speaker
+                # prev_speaker != speaker
+                speaker
+                != next_speaker
+            ):  # NOTE: it doesn't handle the case where last chunk of a batch is the end of the speaker's turn
+                # prev_speaker = speaker
                 calc_loss = True
             elif chunk.tape.count("Speaker") > 1 or chunk.control_token != "C.LISTEN":
                 calc_loss = True
@@ -193,6 +202,8 @@ class LitSAASRControl(L.LightningModule):
 
             if not calc_loss:
                 continue
+
+            num_samples += 1
 
             try:
                 addressee_loss, ai_addressee_loss, control_token_loss = (
@@ -219,7 +230,7 @@ class LitSAASRControl(L.LightningModule):
                 )
             except Exception as e:
                 print(f"Error in loss calculation in validation step: {e}")
-                num_samples -= 1
+                # num_samples -= 1
                 continue
 
             # batch_loss = batch_loss + loss
