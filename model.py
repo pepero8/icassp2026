@@ -21,7 +21,7 @@ class SAASRControl(nn.Module):
         self.addressee_embedding = nn.Embedding(
             # num_embeddings=self.config.num_speakers + 2,  # +2 for 'assistant' and 'all'
             num_embeddings=self.config.num_speakers
-            + 3,  # +2 for 'assistant' and 'all' and 'NA'
+            + 3,  # +3 for 'assistant' and 'all' and 'NA'
             embedding_dim=self.config.control_module.addressee_predictor.hidden_dim,
         )  # (num_speakers+3, hidden_dim)
 
@@ -67,19 +67,29 @@ class SAASRControl(nn.Module):
         # )
         speaker_idx = addressee_to_idx[cur_speaker] if addressee_to_idx else None
 
-        (
-            addressee,
-            addressee_embd,
-            ai_addressee,
-            ai_addressee_embd,
-            control_token,
-            cls,
-        ) = self.control_module(token_sequence, self.dialog_memory)
+        addressee_label = (
+            torch.tensor(target_addressee_idx).unsqueeze(0).to("cuda")
+        )  # (1, )
+        gt_addressee_emb = self.addressee_embedding(addressee_label)  # (1, hidden_dim)
 
         if mode == "train":
-            addressee_label = (
-                torch.tensor(target_addressee_idx).unsqueeze(0).to(cls.device)
-            )  # (1, )
+            (
+                addressee,
+                _,
+                ai_addressee,
+                _,
+                control_token,
+                cls,
+            ) = self.control_module(
+                token_sequence,
+                self.dialog_memory,
+                gt_addressee_emb,
+                self.addressee_embedding,
+            )
+
+            # addressee_label = (
+            #     torch.tensor(target_addressee_idx).unsqueeze(0).to(cls.device)
+            # )  # (1, )
             ai_addressee_label = (
                 torch.tensor(target_ai_addressee_idx).unsqueeze(0).to(cls.device)
             )  # (1, )
@@ -87,13 +97,24 @@ class SAASRControl(nn.Module):
                 torch.tensor(speaker_idx).unsqueeze(0).to(cls.device)
             )  # (1, )
             # control_token_label = target_control_token_idx.unsqueeze(0)  # (1, )
-            addressee_embd = self.addressee_embedding(
-                addressee_label
-            )  # (1, hidden_dim)
+            # addressee_embd = self.addressee_embedding(
+            #     addressee_label
+            # )  # (1, hidden_dim)
+            addressee_embd = gt_addressee_emb
             ai_addressee_embd = self.addressee_embedding(ai_addressee_label)
             speaker_embd = self.addressee_embedding(speaker_label)
-
         else:
+            (
+                addressee,
+                _,
+                ai_addressee,
+                _,
+                control_token,
+                cls,
+            ) = self.control_module.inference(
+                token_sequence, self.dialog_memory, self.addressee_embedding
+            )
+
             addressee_label = addressee.argmax(dim=1)
 
             ai_addressee_idx = ai_addressee.argmax(dim=1)
@@ -128,7 +149,8 @@ class SAASRControl(nn.Module):
 
         # > update dialog memory with speaker embedding, cls token and addressee embedding
         new_token = torch.cat(
-            (addressee_embd.detach(), cls.detach(), speaker_embd.detach()),
+            # (addressee_embd.detach(), cls.detach(), speaker_embd.detach()),
+            (addressee_embd, cls, speaker_embd),
             dim=1,  # tensors should be detached to avoid gradients flowing into dialog memory
         )  # (1, D + 2*hidden_dim), D is dim of cls token, hidden_dim is dim of addressee & speaker embedding
         if self.dialog_memory.numel() == 0:
@@ -156,9 +178,12 @@ class SAASRControl(nn.Module):
 
             new_token = torch.cat(
                 (
-                    ai_addressee_embd.detach(),
-                    ai_response_cls.detach(),
-                    speaker_ai_embd.detach(),
+                    # ai_addressee_embd.detach(),
+                    ai_addressee_embd,
+                    # ai_response_cls.detach(),
+                    ai_response_cls,
+                    # speaker_ai_embd.detach(),
+                    speaker_ai_embd,
                 ),
                 dim=1,
             )  # (1, D + 2*hidden_dim)
