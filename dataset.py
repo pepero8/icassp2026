@@ -25,6 +25,13 @@ class TrainBatch:
     reset_dialog_memory: bool = False
 
 
+@dataclass
+class TestBatch:
+    sample: list[Chunk]  # list of Chunk instances of a single session
+    reset_dialog_memory: bool = False
+    task_name: str = ""  # task name of the session, e.g., "task1", "task2", etc.
+
+
 def collate_fn(batch):
     """
     Custom collate function to handle TrainBatch objects.
@@ -32,16 +39,17 @@ def collate_fn(batch):
     """
     return batch[0]  # Return the single TrainBatch
 
+
 class CustomSampler(Sampler):
     def __init__(self, dataset):
         self.dataset = dataset
         self.num_samples = len(dataset)
-        
+
     def __iter__(self):
         # Create an iterator that yields indices in a random order
         indices = torch.randperm(self.num_samples).tolist()
         return iter(indices)
-    
+
     def __len__(self):
         return self.num_samples
 
@@ -54,7 +62,7 @@ class CustomDataset(Dataset):
         self.idx = 0
         self.sample_list_idx = 0
         self.reset_dialog_memory = False
-        
+
         self.total_steps = 0  # total number of update steps(samples) in this dataset
         # > load json file. it contains list of dictionaries
         for file in self.sample_files_list:
@@ -108,6 +116,89 @@ class CustomDataset(Dataset):
 
     def __len__(self):
         # return len(self.sample_files_list)
+        return self.total_steps
+
+
+class CustomDatasetForTest(Dataset):
+
+    def __init__(
+        self,
+        files_list_task1,
+        files_list_task2,
+        files_list_task3,
+        files_list_task5_1,
+        files_list_task5_2,
+        files_list_task5_3,
+        files_list_task6,
+        total_file_count,
+    ):
+
+        self.task_names = [
+            "task1",
+            "task2",
+            "task3",
+            "task5_1",
+            "task5_2",
+            "task5_3",
+            "task6",
+        ]
+        self.files_list_task1 = files_list_task1
+        self.files_list_task2 = files_list_task2
+        self.files_list_task3 = files_list_task3
+        self.files_list_task5_1 = files_list_task5_1
+        self.files_list_task5_2 = files_list_task5_2
+        self.files_list_task5_3 = files_list_task5_3
+        self.files_list_task6 = files_list_task6
+
+        self.tasks = []
+        self.tasks.append(self.files_list_task1)
+        self.tasks.append(self.files_list_task2)
+        self.tasks.append(self.files_list_task3)
+        self.tasks.append(self.files_list_task5_1)
+        self.tasks.append(self.files_list_task5_2)
+        self.tasks.append(self.files_list_task5_3)
+        self.tasks.append(self.files_list_task6)
+
+        self.current_task_idx = -1  # task index
+        self.current_task = None
+        self.idx = 0  # file index
+        self.reset_dialog_memory = (
+            True  # ? always reset dialog memory when new sample is loaded
+        )
+        self.total_steps = total_file_count
+
+    def __getitem__(self, index):
+        if self.current_task is None or self.idx >= len(self.current_task):
+            # > switch to next task
+            self.current_task = self.tasks[self.current_task_idx + 1]
+            self.current_task_idx += 1
+            self.idx = 0
+
+        with open(self.current_task[self.idx], "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        next = [
+            Chunk(
+                tape=item["tape"],
+                addressee=item["addressee"],
+                control_token=item["control_token"],
+                ai_addressee=item["ai_addressee"],
+                ai_response=item["ai_response"],
+                original_response_without_interruption=item[
+                    "original_response_without_interruption"
+                ],
+            )
+            for item in data
+        ]
+
+        self.idx += 1
+        return TestBatch(
+            next,
+            reset_dialog_memory=self.reset_dialog_memory,
+            task_name=self.task_names[self.current_task_idx],
+        )
+
+    def __len__(self):
         return self.total_steps
 
 

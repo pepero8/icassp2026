@@ -18,6 +18,7 @@ app = typer.Typer(pretty_exceptions_enable=False)
 @app.command()
 def main(
     cfg: Annotated[str, typer.Argument(help="Path to the config file")],
+    test: Annotated[bool, typer.Option(help="Perform test on the model")] = False,
 ):
 
     config = OmegaConf.load(cfg)
@@ -71,12 +72,13 @@ def main(
         check_val_every_n_epoch=1,
     )
 
-    trainer.fit(model, data_module)
-    # trainer.fit(model, ckpt_path="path/to/your/checkpoint.ckpt")  # resume training
-
-    # trainer.test(
-    #     model, datamodule=data_module, ckpt_path="best"
-    # )  # test with best checkpoint
+    if not test:
+        trainer.fit(model, data_module)
+        # trainer.fit(model, ckpt_path="path/to/your/checkpoint.ckpt")  # resume training
+    else:
+        trainer.test(
+            model, datamodule=data_module, ckpt_path="best"
+        )  # test with best checkpoint
 
 
 if __name__ == "__main__":
