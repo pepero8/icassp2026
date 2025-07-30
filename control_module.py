@@ -146,10 +146,12 @@ class ControlModule(nn.Module):
         #     -1
         # )  # Global average pooling. (1, 512)
 
+        # > add _cls and out before passing to transformer layer
+        out = out + _cls.unsqueeze(-1).expand(-1, -1, out.size(-1))  # (1, 512, L)
+
         # ========================== transformer layer로 변경 ==========================
         # > Add all-zero 512 dim embedding at the end of 'out'
         # out = F.pad(out, (0, 1, 0, 0), value=0)  #  (1, 512, L)
-
         out = out.transpose(1, 2)  # (1, L, 512)
         out = self.transformer_layer(out)  # (1, L, 512)
         # out = out.transpose(1, 2)  # (1, 512, L)
