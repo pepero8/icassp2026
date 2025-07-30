@@ -146,23 +146,26 @@ class ControlModule(nn.Module):
         #     -1
         # )  # Global average pooling. (1, 512)
 
-        # > add _cls and out before passing to transformer layer
-        out = out + _cls.unsqueeze(-1).expand(-1, -1, out.size(-1))  # (1, 512, L)
+        #  add _cls and out before passing to transformer layer
+        # out = out + _cls.unsqueeze(-1).expand(-1, -1, out.size(-1))  # (1, 512, L)
+
+        # > concat _cls at the end of out
+        out = torch.cat((out, _cls.unsqueeze(-1)), dim=-1)  # (1, 512, L + 1)
 
         # ========================== transformer layer로 변경 ==========================
         # > Add all-zero 512 dim embedding at the end of 'out'
         # out = F.pad(out, (0, 1, 0, 0), value=0)  #  (1, 512, L)
-        out = out.transpose(1, 2)  # (1, L, 512)
-        out = self.transformer_layer(out)  # (1, L, 512)
+        out = out.transpose(1, 2)  # (1, L+1, 512)
+        out = self.transformer_layer(out)  # (1, L+1, 512)
         # out = out.transpose(1, 2)  # (1, 512, L)
         # out = out[:, :, -1]  # (1, 512)
         # ========================== transformer layer로 변경 ==========================
 
         out, _ = self.cls_transformer_attention(
             query=_cls.unsqueeze(1),  # _cls.unsqueeze: (1, 1, 512)
-            key=out,  # (1, L, 512)
-            value=out,  # (1, L, 512)
-        )  # (1, L, 512)
+            key=out,  # (1, L+1, 512)
+            value=out,  # (1, L+1, 512)
+        )  # (1, L+1, 512)
         out = out.sum(dim=1)  # (1, 512) # > sum along feaure length dimension
 
         out_for_addr_emb = torch.concat((out, _cls), dim=-1)  # (1, 512 + 512)
