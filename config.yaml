@@ -2,7 +2,7 @@ seed: 42
 
 num_speakers: 4 # max number of speakers
 
-default_root_dir: ./exp
+default_root_dir: "/shared/NAS_SSD/jhl/icassp/experiments"
 
 # data_dir: /shared/data_zfs/jhwan/icassp/synthesized_data_v2_refined_processed # train data
 data_dir: "/shared/data_zfs/jhwan/icassp/synthesized_data_v2_refined3_processed"
