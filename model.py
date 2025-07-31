@@ -22,7 +22,8 @@ class SAASRControl(nn.Module):
             # num_embeddings=self.config.num_speakers + 2,  # +2 for 'assistant' and 'all'
             num_embeddings=self.config.num_speakers
             + 3,  # +3 for 'assistant' and 'all' and 'NA'
-            embedding_dim=self.config.control_module.addressee_predictor.hidden_dim,
+            # embedding_dim=self.config.control_module.addressee_predictor.hidden_dim,
+            embedding_dim=self.config.control_module.addressee_table_dim,
         )  # (num_speakers+3, hidden_dim)
 
     def forward(

@@ -15,10 +15,8 @@ class ControlModule(nn.Module):
         )
         self.cross_attention = CrossAttention(
             query_dim=self.transformer_encoder.dim,
-            key_dim=self.transformer_encoder.dim
-            + config.addressee_predictor.hidden_dim * 2,
-            value_dim=self.transformer_encoder.dim
-            + config.addressee_predictor.hidden_dim * 2,
+            key_dim=self.transformer_encoder.dim + config.addressee_table_dim * 2,
+            value_dim=self.transformer_encoder.dim + config.addressee_table_dim * 2,
             **config.cross_attention,
         )
 
@@ -34,8 +32,7 @@ class ControlModule(nn.Module):
 
         self.conv_pool = nn.Conv1d(
             # config.conv_pool.feature_dim,
-            in_channels=self.transformer_encoder.dim
-            + config.addressee_predictor.hidden_dim * 2,
+            in_channels=self.transformer_encoder.dim + config.addressee_table_dim * 2,
             out_channels=config.conv_pool.out_channels,
             kernel_size=config.conv_pool.kernel_size,
             stride=config.conv_pool.stride,
@@ -80,29 +77,48 @@ class ControlModule(nn.Module):
             num_speakers + 2,  # + 2 for 'assistant' and 'all'
         )
 
-        self.control_predictor_attention = CrossAttention(
-            query_dim=config.addressee_predictor.hidden_dim
-            + config.conv_pool.out_channels,
-            key_dim=self.transformer_encoder.dim
-            + config.addressee_predictor.hidden_dim * 2,
-            value_dim=self.transformer_encoder.dim
-            + config.addressee_predictor.hidden_dim * 2,
-            **config.control_predictor.cross_attention,
-        )  # ? Control net에 해당
+        # self.addressee_predictor_hidden = nn.Sequential(
+        #     nn.Linear(
+        #         # config.conv_pool.out_channels + self.transformer_encoder.dim,
+        #         config.conv_pool.out_channels * 2,
+        #         config.addressee_predictor.hidden_dim1,
+        #     ),
+        #     nn.ReLU(),
+        #     # nn.Linear(
+        #     #     # config.conv_pool.out_channels + self.transformer_encoder.dim,
+        #     #     config.addressee_predictor.hidden_dim1,
+        #     #     config.addressee_predictor.hidden_dim2,
+        #     # ),  # 768 -> 512
+        #     # nn.ReLU(),
+        # )
+        # self.addressee_predictor_out = nn.Linear(
+        #     # config.addressee_predictor.hidden_dim2,
+        #     config.addressee_predictor.hidden_dim1,
+        #     num_speakers + 2,  # + 2 for 'assistant' and 'all'
+        # )
+
+        # self.control_predictor_attention = CrossAttention(
+        #     query_dim=config.addressee_table_dim + config.conv_pool.out_channels,
+        #     key_dim=self.transformer_encoder.dim + config.addressee_table_dim * 2,
+        #     value_dim=self.transformer_encoder.dim + config.addressee_table_dim * 2,
+        #     **config.control_predictor.cross_attention,
+        # )  # ? Control net에 해당
 
         self.control_predictor_linear = nn.Linear(
-            self.transformer_encoder.dim + config.addressee_predictor.hidden_dim * 2, 4
+            # self.transformer_encoder.dim + config.addressee_table_dim * 2, 4
+            config.conv_pool.out_channels * 2 + config.addressee_table_dim,
+            4,
         )
         self.ai_addressee_predictor_hidden = nn.Sequential(
             nn.Linear(
-                self.transformer_encoder.dim
-                + config.addressee_predictor.hidden_dim * 2,
-                config.addressee_predictor.hidden_dim,
+                # self.transformer_encoder.dim + config.addressee_table_dim * 2,
+                config.conv_pool.out_channels * 2 + config.addressee_table_dim,
+                config.addressee_table_dim,
             ),
             nn.ReLU(),
         )
         self.ai_addressee_predictor_linear = nn.Linear(
-            config.addressee_predictor.hidden_dim,
+            config.addressee_table_dim,
             num_speakers + 2,  # + 2 for 'NA' and 'All'
         )
 
@@ -125,10 +141,10 @@ class ControlModule(nn.Module):
             )  # (1, L, D + 2*hidden_dim)
         else:
             zero_addressee_emb = torch.zeros(
-                (1, self.config.addressee_predictor.hidden_dim), device=x.device
+                (1, self.config.addressee_table_dim), device=x.device
             )
             zero_speaker_emb = torch.zeros(
-                (1, self.config.addressee_predictor.hidden_dim), device=x.device
+                (1, self.config.addressee_table_dim), device=x.device
             )
             out_dialog = torch.cat(
                 (zero_addressee_emb, cls, zero_speaker_emb), dim=-1
@@ -150,21 +166,23 @@ class ControlModule(nn.Module):
         # out = out + _cls.unsqueeze(-1).expand(-1, -1, out.size(-1))  # (1, 512, L)
 
         # > concat _cls at the end of out
-        out = torch.cat((out, _cls.unsqueeze(-1)), dim=-1)  # (1, 512, L + 1)
+        # out = torch.cat((out, _cls.unsqueeze(-1)), dim=-1)  # (1, 512, L + 1)
 
         # ========================== transformer layer로 변경 ==========================
         # > Add all-zero 512 dim embedding at the end of 'out'
         # out = F.pad(out, (0, 1, 0, 0), value=0)  #  (1, 512, L)
-        out = out.transpose(1, 2)  # (1, L+1, 512)
-        out = self.transformer_layer(out)  # (1, L+1, 512)
+        out = out.transpose(1, 2)  # (1, L, 512)
+        out = self.transformer_layer(
+            out
+        )  # ! (1, L+1, 512) -> layer 수 4개 head 개수 4개로
         # out = out.transpose(1, 2)  # (1, 512, L)
         # out = out[:, :, -1]  # (1, 512)
         # ========================== transformer layer로 변경 ==========================
 
         out, _ = self.cls_transformer_attention(
             query=_cls.unsqueeze(1),  # _cls.unsqueeze: (1, 1, 512)
-            key=out,  # (1, L+1, 512)
-            value=out,  # (1, L+1, 512)
+            key=out,  # (1, L, 512)
+            value=out,  # (1, L, 512)
         )  # (1, L+1, 512)
         out = out.sum(dim=1)  # (1, 512) # > sum along feaure length dimension
 
@@ -179,32 +197,42 @@ class ControlModule(nn.Module):
         # addressee_label = addressee.argmax(dim=1)
         # addressee_emb = addressee_embedding_table(addressee_label)  # (1, hidden_dim)
 
-        if dialog_memory.numel() != 0:
-            out, _ = self.control_predictor_attention(
-                # query=cls.unsqueeze(1),  # (1, 1, D)
-                query=torch.cat((gt_addressee_emb, out), dim=-1).unsqueeze(
-                    1
-                ),  # (1, 1, hidden_dim+512)
-                key=dialog_memory.unsqueeze(0),  # (1, L, D + 2*hidden_dim)
-                # key=out_dialog,
-                value=dialog_memory.unsqueeze(0),  # (1, L, D + 2*hidden_dim)
-                # value=out_dialog,
-            )  # (1, L, D + 2*hidden_dim)
-        else:
-            out = out_dialog  # (1, 1, D + 2*hidden_dim)
-            # out = cls.unsqueeze(1)  # (1, 1, D)
+        out_for_control_emb = torch.concat(
+            (gt_addressee_emb, out, _cls), dim=-1
+        )  # (1, 32 + 512 + 512)
 
-        out = out.transpose(1, 2)  # (1, D + 2*hidden_dim, L)
-        # todo: make out shape (1, D + 2*hidden_dim)
-        # out = F.adaptive_avg_pool1d(out, 1).squeeze(
-        #     -1
-        # )  # Global average pooling. (1, D + 2*hidden_dim)
-        out = out.sum(dim=-1)  # (1, D + 2*hidden_dim)
+        out_for_ai_addressee_emb = torch.concat(
+            (gt_addressee_emb, out, _cls), dim=-1
+        )  # (1, 32 + 512 + 512)
+
+        # if dialog_memory.numel() != 0:
+        #     out, _ = self.control_predictor_attention(
+        #         # query=cls.unsqueeze(1),  # (1, 1, D)
+        #         query=torch.cat((gt_addressee_emb, out), dim=-1).unsqueeze(
+        #             1
+        #         ),  # (1, 1, hidden_dim+512)
+        #         key=dialog_memory.unsqueeze(0),  # (1, L, D + 2*hidden_dim)
+        #         # key=out_dialog,
+        #         value=dialog_memory.unsqueeze(0),  # (1, L, D + 2*hidden_dim)
+        #         # value=out_dialog,
+        #     )  # (1, L, D + 2*hidden_dim)
+        # else:
+        #     out = out_dialog  # (1, 1, D + 2*hidden_dim)
+        #     # out = cls.unsqueeze(1)  # (1, 1, D)
+
+        # out = out.transpose(1, 2)  # (1, D + 2*hidden_dim, L)
+        # # todo: make out shape (1, D + 2*hidden_dim)
+        # # out = F.adaptive_avg_pool1d(out, 1).squeeze(
+        # #     -1
+        # # )  # Global average pooling. (1, D + 2*hidden_dim)
+        # out = out.sum(dim=-1)  # (1, D + 2*hidden_dim)
 
         control_token = self.control_predictor_linear(
-            out
+            # out
+            out_for_control_emb
         )  # raw logits(linear의 output), (1, 4)
-        ai_addressee_emb = self.ai_addressee_predictor_hidden(out)
+        # ai_addressee_emb = self.ai_addressee_predictor_hidden(out)
+        ai_addressee_emb = self.ai_addressee_predictor_hidden(out_for_ai_addressee_emb)
         ai_addressee = self.ai_addressee_predictor_linear(
             ai_addressee_emb
         )  # (1, num_speakers + 2)
@@ -237,10 +265,10 @@ class ControlModule(nn.Module):
             )  # (1, L, D + 2*hidden_dim)
         else:
             zero_addressee_emb = torch.zeros(
-                (1, self.config.addressee_predictor.hidden_dim), device=x.device
+                (1, self.config.addressee_table_dim), device=x.device
             )
             zero_speaker_emb = torch.zeros(
-                (1, self.config.addressee_predictor.hidden_dim), device=x.device
+                (1, self.config.addressee_table_dim), device=x.device
             )
             out_dialog = torch.cat(
                 (zero_addressee_emb, cls, zero_speaker_emb), dim=-1
@@ -258,12 +286,17 @@ class ControlModule(nn.Module):
         #     -1
         # )  # Global average pooling. (1, 512)
 
+        # > concat _cls at the end of out
+        # out = torch.cat((out, _cls.unsqueeze(-1)), dim=-1)  # (1, 512, L + 1)
+
         # ========================== transformer layer로 변경 ==========================
         # > Add all-zero 512 dim embedding at the end of 'out'
         # out = F.pad(out, (0, 1, 0, 0), value=0)  #  (1, 512, L)
 
         out = out.transpose(1, 2)  # (1, L, 512)
-        out = self.transformer_layer(out)  # (1, L, 512)
+        out = self.transformer_layer(
+            out
+        )  # ! (1, L+1, 512) -> layer 수 4개 head 개수 4개로
         # out = out.transpose(1, 2)  # (1, 512, L)
         # out = out[:, :, -1]  # (1, 512)
         # ========================== transformer layer로 변경 ==========================
@@ -276,42 +309,52 @@ class ControlModule(nn.Module):
         out = out.sum(dim=1)  # (1, 512) # > sum along feaure length dimension
 
         out_for_addr_emb = torch.concat((out, _cls), dim=-1)  # (1, 512 + 512)
+
         _addressee_emb = self.addressee_predictor_hidden(
             out_for_addr_emb
-        )  # (1, hidden_dim)
+        )  # (1, hidden_dim2)
         addressee = self.addressee_predictor_out(
             _addressee_emb
         )  # raw logits(linear의 output), (1, num_speakers + 2)
 
         addressee_label = addressee.argmax(dim=1)
-        addressee_emb = addressee_embedding_table(addressee_label)  # (1, hidden_dim)
+        addressee_emb = addressee_embedding_table(addressee_label)  # (1, 32)
 
-        if dialog_memory.numel() != 0:
-            out, _ = self.control_predictor_attention(
-                # query=cls.unsqueeze(1),  # (1, 1, D)
-                query=torch.cat((addressee_emb, out), dim=-1).unsqueeze(
-                    1
-                ),  # (1, 1, D+hidden_dim)
-                key=dialog_memory.unsqueeze(0),  # (1, L, D + 2*hidden_dim)
-                # key=out_dialog,
-                value=dialog_memory.unsqueeze(0),  # (1, L, D + 2*hidden_dim)
-                # value=out_dialog,
-            )  # (1, L, D + 2*hidden_dim)
-        else:
-            out = out_dialog  # (1, 1, D + 2*hidden_dim)
-            # out = cls.unsqueeze(1)  # (1, 1, D)
+        out_for_control_emb = torch.concat(
+            (addressee_emb, out, _cls), dim=-1
+        )  # (1, 32 + 512 + 512)
 
-        out = out.transpose(1, 2)  # (1, D + 2*hidden_dim, L)
-        # todo: make out shape (1, D + 2*hidden_dim)
-        # out = F.adaptive_avg_pool1d(out, 1).squeeze(
-        #     -1
-        # )  # Global average pooling. (1, D + 2*hidden_dim)
-        out = out.sum(dim=-1)  # (1, D + 2*hidden_dim)
+        out_for_ai_addressee_emb = torch.concat(
+            (addressee_emb, out, _cls), dim=-1
+        )  # (1, 32 + 512 + 512)
+
+        # if dialog_memory.numel() != 0:
+        #     out, _ = self.control_predictor_attention(
+        #         # query=cls.unsqueeze(1),  # (1, 1, D)
+        #         query=torch.cat((addressee_emb, out), dim=-1).unsqueeze(
+        #             1
+        #         ),  # (1, 1, D+hidden_dim)
+        #         key=dialog_memory.unsqueeze(0),  # (1, L, D + 2*hidden_dim)
+        #         # key=out_dialog,
+        #         value=dialog_memory.unsqueeze(0),  # (1, L, D + 2*hidden_dim)
+        #         # value=out_dialog,
+        #     )  # (1, L, D + 2*hidden_dim)
+        # else:
+        #     out = out_dialog  # (1, 1, D + 2*hidden_dim)
+        #     # out = cls.unsqueeze(1)  # (1, 1, D)
+
+        # out = out.transpose(1, 2)  # (1, D + 2*hidden_dim, L)
+        # # out = F.adaptive_avg_pool1d(out, 1).squeeze(
+        # #     -1
+        # # )  # Global average pooling. (1, D + 2*hidden_dim)
+        # out = out.sum(dim=-1)  # (1, D + 2*hidden_dim)
 
         control_token = self.control_predictor_linear(
-            out
+            # out
+            out_for_control_emb
         )  # raw logits(linear의 output), (1, 4)
-        ai_addressee_emb = self.ai_addressee_predictor_hidden(out)
+        # ai_addressee_emb = self.ai_addressee_predictor_hidden(out)
+        ai_addressee_emb = self.ai_addressee_predictor_hidden(out_for_ai_addressee_emb)
         ai_addressee = self.ai_addressee_predictor_linear(
             ai_addressee_emb
         )  # (1, num_speakers + 2)

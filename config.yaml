@@ -20,6 +20,7 @@ optimizer:
   amsgrad: false
 
 control_module:
+  addressee_table_dim: 32
   transformer_encoder:
     pretrained_transformer: "bert"
   cross_attention:
@@ -36,13 +37,15 @@ control_module:
     padding: "same"
     stride: 1
   transformer_layer:
-    num_layers: 1
-    nhead: 1
+    num_layers: 4
+    nhead: 4
     dim_feedforward: 1024
     dropout: 0.1
     activation: "relu"
   addressee_predictor:
-    hidden_dim: 32 # 256
+    hidden_dim: 32
+    # hidden_dim1: 768 # 256
+    # hidden_dim2: 512
   control_predictor:
     cross_attention:
       # query_dim:
