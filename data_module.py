@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 # import pytorch_lightning as L
@@ -6,7 +7,13 @@ import torch
 from torch.utils.data import DataLoader, random_split
 import re
 
-from dataset import CustomDataset, CustomDatasetForTest, CustomSampler, collate_fn
+from dataset import (
+    Chunk,
+    CustomDataset,
+    CustomDatasetForTest,
+    CustomSampler,
+    collate_fn,
+)
 
 
 def extract_task_name(filename: str) -> str:
@@ -17,6 +24,57 @@ def extract_task_name(filename: str) -> str:
         return match.group(1)
     else:
         raise ValueError(f"Task name not found in filename: {filename}")
+
+
+def analyze_label_dist(files_list):
+    ai_addressee_count = {}
+    addressee_count = {}
+    ctrl_token_count = {}
+
+    for file in files_list:
+        with open(file, "r") as f:
+            data = json.load(f)
+
+            # chunk_list = [
+            #     Chunk(
+            #         tape=item["tape"],
+            #         addressee=item["addressee"],
+            #         control_token=item["control_token"],
+            #         ai_addressee=item["ai_addressee"],
+            #         ai_response=item["ai_response"],
+            #         original_response_without_interruption=item[
+            #             "original_response_without_interruption"
+            #         ],
+            #     )
+            #     for item in data
+            # ]
+            for item in data:
+                ai_addr = item["ai_addressee"]
+                addr = item["addressee"]
+                ctrl = item["control_token"]
+                if ai_addr not in ai_addressee_count:
+                    ai_addressee_count[ai_addr] = 0
+                ai_addressee_count[ai_addr] += 1
+
+                if addr not in addressee_count:
+                    addressee_count[addr] = 0
+                addressee_count[addr] += 1
+
+                if ctrl not in ctrl_token_count:
+                    ctrl_token_count[ctrl] = 0
+                ctrl_token_count[ctrl] += 1
+
+    print("AI Addressee Distribution:")
+    for addressee, count in ai_addressee_count.items():
+        print(f"{addressee}: {count}")
+    print("-" * 20)
+    print("Addressee Distribution:")
+    for addressee, count in addressee_count.items():
+        print(f"{addressee}: {count}")
+    print("-" * 20)
+    print("Control Token Distribution:")
+    for ctrl_token, count in ctrl_token_count.items():
+        print(f"{ctrl_token}: {count}")
 
 
 class DataModule(L.LightningDataModule):
@@ -45,6 +103,15 @@ class DataModule(L.LightningDataModule):
             #     [1300, 200],
             #     generator=torch.Generator().manual_seed(self.config.seed),
             # )
+
+            # > analyze ai addressee label distribution
+            print(f"{' Train ':=^30}")
+            analyze_label_dist(train_list)
+            print()
+            print(f"{' Val ':=^30}")
+            analyze_label_dist(val_list)
+            print()
+
             self.train_dataset = CustomDataset(
                 train_list, batch_size=self.config.train_batch_size
             )
