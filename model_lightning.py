@@ -352,12 +352,12 @@ class LitSAASRControl(L.LightningModule):
 
         num_samples = 0  # > count number of samples that have loss calculated
         for i, chunk in enumerate(sample):
-            speaker = chunk.tape.split()[0].strip("<>")
-            next_speaker = (
-                sample[i + 1].tape.split()[0].strip("<>")
-                if i + 1 < len(sample)
-                else speaker
-            )
+            # speaker = chunk.tape.split()[0].strip("<>")
+            # next_speaker = (
+            #     sample[i + 1].tape.split()[0].strip("<>")
+            #     if i + 1 < len(sample)
+            #     else speaker
+            # )
 
             addressee, ai_addressee, control_token = self.model(
                 chunk,
@@ -368,22 +368,22 @@ class LitSAASRControl(L.LightningModule):
                 mode="valid",
             )
 
-            # > Calculate loss only at the end of each speaker's turn or when it is assistant's turn
-            if (
-                # prev_speaker != speaker
-                speaker
-                != next_speaker
-            ):  # NOTE: it doesn't handle the case where last chunk of a batch is the end of the speaker's turn
-                # prev_speaker = speaker
-                calc_loss = True
-            elif chunk.tape.count("Speaker") > 1 or chunk.control_token != "C.LISTEN":
-                calc_loss = True
-            else:
-                calc_loss = False
+            # # > Calculate loss only at the end of each speaker's turn or when it is assistant's turn
+            # if (
+            #     # prev_speaker != speaker
+            #     speaker
+            #     != next_speaker
+            # ):  # NOTE: it doesn't handle the case where last chunk of a batch is the end of the speaker's turn
+            #     # prev_speaker = speaker
+            #     calc_loss = True
+            # elif chunk.tape.count("Speaker") > 1 or chunk.control_token != "C.LISTEN":
+            #     calc_loss = True
+            # else:
+            #     calc_loss = False
 
-            # addressee, ai_addressee, control_token = self.model(chunk)
-
-            if not calc_loss:
+            # if not calc_loss:
+            #     continue
+            if not chunk.calc_loss:
                 continue
 
             num_samples += 1

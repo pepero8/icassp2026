@@ -43,11 +43,10 @@ def main(
     # trainer = L.Trainer(
     #     fast_dev_run=1,
     #     num_sanity_val_steps=1,
-    #     max_epochs=10,
+    #     max_epochs=1,
     #     default_root_dir=config.default_root_dir,  # Path to save checkpoints and logs
     #     callbacks=[early_stop_callback],
-    #     strategy=ddp_strategy,
-    # ) # ? for testing
+    # )  # ? for testing
 
     # > Generate version based on current timestamp
     current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -85,4 +84,4 @@ if __name__ == "__main__":
     app()
     # typer.run(main)
 
-# CUDA_VISIBLE_DEVICES=3 python train.py config.yaml
+# CUDA_VISIBLE_DEVICES=5 python train.py config.yaml
