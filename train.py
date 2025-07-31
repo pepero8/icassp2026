@@ -64,6 +64,7 @@ def main(
     trainer = L.Trainer(
         num_sanity_val_steps=1,
         max_epochs=10,
+        # max_epochs=0,
         logger=logger,
         # default_root_dir=config.default_root_dir,  # Path to save checkpoints and logs
         callbacks=[early_stop_callback, checkpoint_callback],
@@ -74,6 +75,15 @@ def main(
     if not test:
         trainer.fit(model, data_module)
         # trainer.fit(model, ckpt_path="path/to/your/checkpoint.ckpt")  # resume training
+        # trainer.test(
+        #     model,
+        #     data_module,
+        #     # ckpt_path="/shared/NAS_SSD/jhl/icassp/experiments/icassp2026/20250730-080007/checkpoints/epoch=00-val_loss:val_loss=9.0101.ckpt",
+        #     # ckpt_path="/shared/NAS_SSD/jhl/icassp/experiments/icassp2026/20250730-080007/checkpoints/epoch=01-val_loss:val_loss=10.1380.ckpt",
+        #     # ckpt_path="/shared/NAS_SSD/jhl/icassp/experiments/icassp2026/20250730-080007/checkpoints/epoch=02-val_loss:val_loss=8.3589.ckpt",
+        #     # ckpt_path="/shared/NAS_SSD/jhl/icassp/experiments/icassp2026/20250730-080007/checkpoints/epoch=05-val_loss:val_loss=10.1480.ckpt",
+        #     ckpt_path="/shared/NAS_SSD/jhl/icassp/experiments/icassp2026/20250730-080007/checkpoints/epoch=07-val_loss:val_loss=10.7079.ckpt",
+        # )
     else:
         trainer.test(
             model, datamodule=data_module, ckpt_path="best"
@@ -84,4 +94,4 @@ if __name__ == "__main__":
     app()
     # typer.run(main)
 
-# CUDA_VISIBLE_DEVICES=5 python train.py config.yaml
+# CUDA_VISIBLE_DEVICES=3 python train.py config.yaml

@@ -85,7 +85,7 @@ class DataModule(L.LightningDataModule):
         self.test_data_dir = test_data_dir
 
     def setup(self, stage: str):
-        if stage == "fit":
+        if stage == "fit" or stage == "test":
             # > get file path list of 15000 samples(15000 .json paths) from data_dir
             file_list = sorted([str(p) for p in Path(self.data_dir).glob("*.json")])
 
@@ -122,59 +122,59 @@ class DataModule(L.LightningDataModule):
             print(f"Train dataset size: {len(self.train_dataset)}")
             print(f"Validation dataset size: {len(self.val_dataset)}")
 
-        if stage == "test":
-            # > get file path list of ? samples(? .json paths) from test_data_dir
-            test_list = sorted(
-                [str(p) for p in Path(self.test_data_dir).glob("*.json")]
-            )
+        # if stage == "test":
+        #     # > get file path list of ? samples(? .json paths) from test_data_dir
+        #     test_list = sorted(
+        #         [str(p) for p in Path(self.test_data_dir).glob("*.json")]
+        #     )
 
-            test_list_task1 = []
-            test_list_task2 = []
-            test_list_task3 = []
-            test_list_task5_1 = []
-            test_list_task5_2 = []
-            test_list_task5_3 = []
-            test_list_task6 = []
+        #     test_list_task1 = []
+        #     test_list_task2 = []
+        #     test_list_task3 = []
+        #     test_list_task5_1 = []
+        #     test_list_task5_2 = []
+        #     test_list_task5_3 = []
+        #     test_list_task6 = []
 
-            for file in test_list:
-                task_name = "task" + extract_task_name(file)
-                if task_name == "task1":
-                    test_list_task1.append(file)
-                elif task_name == "task2":
-                    test_list_task2.append(file)
-                elif task_name == "task3":
-                    test_list_task3.append(file)
-                elif task_name == "task5_1":
-                    test_list_task5_1.append(file)
-                elif task_name == "task5_2":
-                    test_list_task5_2.append(file)
-                elif task_name == "task5_3":
-                    test_list_task5_3.append(file)
-                elif task_name == "task6":
-                    test_list_task6.append(file)
+        #     for file in test_list:
+        #         task_name = "task" + extract_task_name(file)
+        #         if task_name == "task1":
+        #             test_list_task1.append(file)
+        #         elif task_name == "task2":
+        #             test_list_task2.append(file)
+        #         elif task_name == "task3":
+        #             test_list_task3.append(file)
+        #         elif task_name == "task5_1":
+        #             test_list_task5_1.append(file)
+        #         elif task_name == "task5_2":
+        #             test_list_task5_2.append(file)
+        #         elif task_name == "task5_3":
+        #             test_list_task5_3.append(file)
+        #         elif task_name == "task6":
+        #             test_list_task6.append(file)
 
-            total_file_count = (
-                len(test_list_task1)
-                + len(test_list_task2)
-                + len(test_list_task3)
-                + len(test_list_task5_1)
-                + len(test_list_task5_2)
-                + len(test_list_task5_3)
-                + len(test_list_task6)
-            )
+        #     total_file_count = (
+        #         len(test_list_task1)
+        #         + len(test_list_task2)
+        #         + len(test_list_task3)
+        #         + len(test_list_task5_1)
+        #         + len(test_list_task5_2)
+        #         + len(test_list_task5_3)
+        #         + len(test_list_task6)
+        #     )
 
-            print(f"Test dataset size: {total_file_count}")
+        #     print(f"Test dataset size: {total_file_count}")
 
-            self.test_dataset = CustomDatasetForTest(
-                test_list_task1,
-                test_list_task2,
-                test_list_task3,
-                test_list_task5_1,
-                test_list_task5_2,
-                test_list_task5_3,
-                test_list_task6,
-                total_file_count,
-            )
+        #     self.test_dataset = CustomDatasetForTest(
+        #         test_list_task1,
+        #         test_list_task2,
+        #         test_list_task3,
+        #         test_list_task5_1,
+        #         test_list_task5_2,
+        #         test_list_task5_3,
+        #         test_list_task6,
+        #         total_file_count,
+        #     )
 
     def train_dataloader(self):
         return DataLoader(
@@ -198,9 +198,19 @@ class DataModule(L.LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(
-            self.test_dataset,
+            self.val_dataset,
             batch_size=1,
             shuffle=False,
+            num_workers=63,
             collate_fn=collate_fn,
-            sampler=CustomSampler(self.test_dataset),
+            sampler=CustomSampler(self.val_dataset),
         )
+
+    # def test_dataloader(self):
+    #     return DataLoader(
+    #         self.test_dataset,
+    #         batch_size=1,
+    #         shuffle=False,
+    #         collate_fn=collate_fn,
+    #         sampler=CustomSampler(self.test_dataset),
+    #     )
