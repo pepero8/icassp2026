@@ -174,7 +174,7 @@ class ControlModule(nn.Module):
         out = out.transpose(1, 2)  # (1, L, 512)
         out = self.transformer_layer(
             out
-        )  # ! (1, L+1, 512) -> layer 수 4개 head 개수 4개로
+        )  # ! (1, L, 512) -> layer 수 4개 head 개수 4개로
         # out = out.transpose(1, 2)  # (1, 512, L)
         # out = out[:, :, -1]  # (1, 512)
         # ========================== transformer layer로 변경 ==========================
@@ -183,7 +183,7 @@ class ControlModule(nn.Module):
             query=_cls.unsqueeze(1),  # _cls.unsqueeze: (1, 1, 512)
             key=out,  # (1, L, 512)
             value=out,  # (1, L, 512)
-        )  # (1, L+1, 512)
+        )  # (1, L, 512)
         out = out.sum(dim=1)  # (1, 512) # > sum along feaure length dimension
 
         out_for_addr_emb = torch.concat((out, _cls), dim=-1)  # (1, 512 + 512)
