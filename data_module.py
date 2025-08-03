@@ -31,6 +31,31 @@ def analyze_label_dist(files_list):
     addressee_count = {}
     ctrl_token_count = {}
 
+    valid_ai_addr = [
+        "Speaker_A",
+        "Speaker_B",
+        "Speaker_C",
+        "Speaker_D",
+        "NA",
+        "All",
+    ]
+    valid_addressee = [
+        "Speaker_A",
+        "Speaker_B",
+        "Speaker_C",
+        "Speaker_D",
+        "Assistant",
+        "All",
+    ]
+    valid_ctrl_tokens = [
+        "C.LISTEN",
+        "C.SPEAK",
+        "S.LISTEN",
+        "S.SPEAK",
+    ]
+
+    error_files = []
+
     for file in files_list:
         with open(file, "r") as f:
             data = json.load(f)
@@ -52,29 +77,41 @@ def analyze_label_dist(files_list):
                 ai_addr = item["ai_addressee"]
                 addr = item["addressee"]
                 ctrl = item["control_token"]
-                if ai_addr not in ai_addressee_count:
-                    ai_addressee_count[ai_addr] = 0
-                ai_addressee_count[ai_addr] += 1
 
-                if addr not in addressee_count:
-                    addressee_count[addr] = 0
-                addressee_count[addr] += 1
+                if (
+                    ai_addr not in valid_ai_addr
+                    or addr not in valid_addressee
+                    or ctrl not in valid_ctrl_tokens
+                ):
+                    error_files.append(file)
+                    break
+                # if ai_addr not in ai_addressee_count:
+                #     ai_addressee_count[ai_addr] = 0
+                # ai_addressee_count[ai_addr] += 1
 
-                if ctrl not in ctrl_token_count:
-                    ctrl_token_count[ctrl] = 0
-                ctrl_token_count[ctrl] += 1
+                # if addr not in addressee_count:
+                #     addressee_count[addr] = 0
+                # addressee_count[addr] += 1
 
-    print("AI Addressee Distribution:")
-    for addressee, count in ai_addressee_count.items():
-        print(f"{addressee}: {count}")
-    print("-" * 20)
-    print("Addressee Distribution:")
-    for addressee, count in addressee_count.items():
-        print(f"{addressee}: {count}")
-    print("-" * 20)
-    print("Control Token Distribution:")
-    for ctrl_token, count in ctrl_token_count.items():
-        print(f"{ctrl_token}: {count}")
+                # if ctrl not in ctrl_token_count:
+                #     ctrl_token_count[ctrl] = 0
+                # ctrl_token_count[ctrl] += 1
+
+    # print("AI Addressee Distribution:")
+    # for addressee, count in ai_addressee_count.items():
+    #     print(f"{addressee}: {count}")
+    # print("-" * 20)
+    # print("Addressee Distribution:")
+    # for addressee, count in addressee_count.items():
+    #     print(f"{addressee}: {count}")
+    # print("-" * 20)
+    # print("Control Token Distribution:")
+    # for ctrl_token, count in ctrl_token_count.items():
+    #     print(f"{ctrl_token}: {count}")
+
+    print("Error Files:")
+    for file in error_files:
+        print(f" - {file}")
 
 
 class DataModule(L.LightningDataModule):
