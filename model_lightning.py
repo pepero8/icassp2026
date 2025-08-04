@@ -18,7 +18,7 @@ class LitSAASRControl(L.LightningModule):
 
         if config.num_speakers == 2:
             self.addressee_labels = ["Speaker_A", "Speaker_B", "Assistant", "All"]
-            self.ai_addressee_labels = ["Speaker_A", "Speaker_B", "NA", "All"]
+            self.ai_addressee_labels = ["Speaker_A", "Speaker_B", "All"]
         elif config.num_speakers == 3:
             self.addressee_labels = [
                 "Speaker_A",
@@ -31,7 +31,6 @@ class LitSAASRControl(L.LightningModule):
                 "Speaker_A",
                 "Speaker_B",
                 "Speaker_C",
-                "NA",
                 "All",
             ]
         elif config.num_speakers == 4:
@@ -48,7 +47,6 @@ class LitSAASRControl(L.LightningModule):
                 "Speaker_B",
                 "Speaker_C",
                 "Speaker_D",
-                "NA",
                 "All",
             ]
 
@@ -108,7 +106,6 @@ class LitSAASRControl(L.LightningModule):
                         chunk.control_token,
                     )
                 )
-
             except Exception as e:
                 print(f"Error in loss calculation in train step: {e}")
                 num_samples -= 1
@@ -182,6 +179,7 @@ class LitSAASRControl(L.LightningModule):
                 self.ai_addressee_to_idx,
                 self.ai_addressee_labels,
                 self.control_token_to_idx,
+                self.control_token_labels,
                 mode="valid",
             )
 
@@ -240,9 +238,11 @@ class LitSAASRControl(L.LightningModule):
 
             batch_pred_addressee = batch_pred_addressee + pred_addressee
             # batch_pred_ai_addressee = batch_pred_ai_addressee + pred_ai_addressee
-            batch_pred_ai_addressee = [
-                a + b for a, b in zip(batch_pred_ai_addressee, pred_ai_addressee_list)
-            ]
+            batch_pred_ai_addressee = (
+                [a + b for a, b in zip(batch_pred_ai_addressee, pred_ai_addressee_list)]
+                if pred_ai_addressee_list is not None
+                else batch_pred_ai_addressee
+            )
             batch_pred_control_token = [
                 a + b for a, b in zip(batch_pred_control_token, pred_control_token_list)
             ]
@@ -524,7 +524,7 @@ class LitSAASRControl(L.LightningModule):
     def compute_loss(
         self,
         addressee_hat,
-        ai_addressee_hat,
+        ai_addressee_hat,  # can be None
         control_token_hat,
         addressee,
         ai_addressee,
@@ -541,15 +541,22 @@ class LitSAASRControl(L.LightningModule):
         addressee_idx = torch.tensor(
             self.addressee_to_idx[addressee], device=self.device
         ).unsqueeze(0)
-        ai_addressee_idx = torch.tensor(
-            self.ai_addressee_to_idx[ai_addressee], device=self.device
-        ).unsqueeze(0)
         control_token_idx = torch.tensor(
             self.control_token_to_idx[control_token], device=self.device
         ).unsqueeze(0)
 
         addressee_loss = self.loss(addressee_hat, addressee_idx)
-        ai_addressee_loss = self.loss(ai_addressee_hat, ai_addressee_idx)
+
+        # if ai_addressee_hat is not None:
+        if ai_addressee != "NA":
+            ai_addressee_idx = torch.tensor(
+                self.ai_addressee_to_idx[ai_addressee], device=self.device
+            ).unsqueeze(0)
+
+            ai_addressee_loss = self.loss(ai_addressee_hat, ai_addressee_idx)
+        else:
+            ai_addressee_loss = torch.tensor(0.0, device=self.device)
+
         control_token_loss = self.loss(control_token_hat, control_token_idx)
 
         # return (
@@ -582,13 +589,17 @@ class LitSAASRControl(L.LightningModule):
         addressee_hat_idx = torch.argmax(addressee_hat, dim=1).item()
         correct_addressee = 1 if addressee_idx == addressee_hat_idx else 0
 
-        ai_addressee_idx = self.ai_addressee_to_idx[ai_addressee]
-        ai_addressee_hat_idx = torch.argmax(ai_addressee_hat, dim=1).item()
-        batch_ai_addressee_label_num[ai_addressee_hat_idx] += 1
-        correct_ai_addressee = [0] * len(self.ai_addressee_labels)
-        if ai_addressee_idx == ai_addressee_hat_idx:
-            correct_ai_addressee[ai_addressee_idx] = 1
-        # correct_ai_addressee = 1 if ai_addressee_idx == ai_addressee_hat_idx else 0
+        # if ai_addressee_hat is not None:
+        if ai_addressee != "NA":
+            ai_addressee_idx = self.ai_addressee_to_idx[ai_addressee]
+            ai_addressee_hat_idx = torch.argmax(ai_addressee_hat, dim=1).item()
+            batch_ai_addressee_label_num[ai_addressee_hat_idx] += 1
+            correct_ai_addressee = [0] * len(self.ai_addressee_labels)
+            if ai_addressee_idx == ai_addressee_hat_idx:
+                correct_ai_addressee[ai_addressee_idx] = 1
+            # correct_ai_addressee = 1 if ai_addressee_idx == ai_addressee_hat_idx else 0
+        else:
+            correct_ai_addressee = None
 
         control_token_idx = self.control_token_to_idx[control_token]
         control_token_hat_idx = torch.argmax(control_token_hat, dim=1).item()

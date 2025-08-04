@@ -119,10 +119,10 @@ class ControlModule(nn.Module):
         )
         self.ai_addressee_predictor_linear = nn.Linear(
             config.addressee_table_dim,
-            num_speakers + 2,  # + 2 for 'NA' and 'All'
+            num_speakers + 1,  # + 1 for 'All'
         )
 
-    def forward(self, x, dialog_memory, gt_addressee_emb, addressee_embedding_table):
+    def forward(self, x, dialog_memory, gt_addressee_emb, gt_ai_addressee):
         """
         x: (1, T), Speaker and content tokens
         dialog_memory: (L, D), D is dim of cls token(dim of transformer encoder output)
@@ -232,10 +232,17 @@ class ControlModule(nn.Module):
             out_for_control_emb
         )  # raw logits(linear의 output), (1, 4)
         # ai_addressee_emb = self.ai_addressee_predictor_hidden(out)
-        ai_addressee_emb = self.ai_addressee_predictor_hidden(out_for_ai_addressee_emb)
-        ai_addressee = self.ai_addressee_predictor_linear(
-            ai_addressee_emb
-        )  # (1, num_speakers + 2)
+
+        if gt_ai_addressee != "NA":
+            ai_addressee_emb = self.ai_addressee_predictor_hidden(
+                out_for_ai_addressee_emb
+            )
+            ai_addressee = self.ai_addressee_predictor_linear(
+                ai_addressee_emb
+            )  # (1, num_speakers + 2)
+        else:
+            ai_addressee = None
+            ai_addressee_emb = None
 
         return (
             addressee,
@@ -246,7 +253,15 @@ class ControlModule(nn.Module):
             cls,
         )
 
-    def inference(self, x, dialog_memory, addressee_embedding_table):
+    def inference(
+        self,
+        x,
+        dialog_memory,
+        addressee_embedding_table,
+        gt_ai_addressee,
+        # gt_control_token,
+        control_token_labels,
+    ):
         """
         x: (1, T), Speaker and content tokens
         dialog_memory: (L, D), D is dim of cls token(dim of transformer encoder output)
@@ -354,10 +369,22 @@ class ControlModule(nn.Module):
             out_for_control_emb
         )  # raw logits(linear의 output), (1, 4)
         # ai_addressee_emb = self.ai_addressee_predictor_hidden(out)
-        ai_addressee_emb = self.ai_addressee_predictor_hidden(out_for_ai_addressee_emb)
-        ai_addressee = self.ai_addressee_predictor_linear(
-            ai_addressee_emb
-        )  # (1, num_speakers + 2)
+
+        # control_token_hat_idx = torch.argmax(control_token, dim=1).item()
+        # control_token_hat = control_token_labels[control_token_hat_idx]
+        if (
+            gt_ai_addressee != "NA"
+        ):  # ? chunk의 ai addressee는 NA가 아닌데 예측한 control token이 S.SPEAK/C.SPEAK이 아닌 경우 ai addressee는 None이 되는데 이러면 loss를 계산할 수 없어서 우선 infer때도 gt_ai_addressee를 사용
+            # if control_token_hat == "S.SPEAK" or control_token_hat == "C.SPEAK":
+            ai_addressee_emb = self.ai_addressee_predictor_hidden(
+                out_for_ai_addressee_emb
+            )
+            ai_addressee = self.ai_addressee_predictor_linear(
+                ai_addressee_emb
+            )  # (1, num_speakers + 2)
+        else:
+            ai_addressee = None
+            ai_addressee_emb = None
 
         return (
             addressee,
