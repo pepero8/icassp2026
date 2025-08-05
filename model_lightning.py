@@ -531,7 +531,8 @@ class LitSAASRControl(L.LightningModule):
         control_token,
     ):
         """
-        addressee_hat: (1, num_speakers)
+        addressee_hat: (1, num_speakers + 2)
+        ai_addressee_hat: (1, num_speakers + 1)
         control_token_hat: (1, 4)
         addressee: str - target addressee label
         control_token: str - target control token label
@@ -553,7 +554,18 @@ class LitSAASRControl(L.LightningModule):
                 self.ai_addressee_to_idx[ai_addressee], device=self.device
             ).unsqueeze(0)
 
-            ai_addressee_loss = self.loss(ai_addressee_hat, ai_addressee_idx)
+            if ai_addressee_hat is not None:
+                ai_addressee_loss = self.loss(ai_addressee_hat, ai_addressee_idx)
+            else:
+                ai_addressee_loss = self.loss(
+                    torch.tensor(
+                        [1.0 / len(self.ai_addressee_labels)]
+                        * len(self.ai_addressee_labels)
+                    ).unsqueeze(
+                        0
+                    ),  # [0.2, 0.2, 0.2, 0.2, 0.2]
+                    ai_addressee_idx,
+                )
         else:
             ai_addressee_loss = torch.tensor(0.0, device=self.device)
 
@@ -579,6 +591,7 @@ class LitSAASRControl(L.LightningModule):
     ):
         """
         addressee_hat: (1, num_speakers)
+        ai_addressee_hat: (1, num_speakers)
         control_token_hat: (1, 4)
         addressee: str - target addressee label
         control_token: str - target control token label
@@ -592,8 +605,13 @@ class LitSAASRControl(L.LightningModule):
         # if ai_addressee_hat is not None:
         if ai_addressee != "NA":
             ai_addressee_idx = self.ai_addressee_to_idx[ai_addressee]
-            ai_addressee_hat_idx = torch.argmax(ai_addressee_hat, dim=1).item()
-            batch_ai_addressee_label_num[ai_addressee_hat_idx] += 1
+            if ai_addressee_hat is not None:
+                ai_addressee_hat_idx = torch.argmax(ai_addressee_hat, dim=1).item()
+                batch_ai_addressee_label_num[ai_addressee_hat_idx] += 1
+                # correct_ai_addressee = [0] * len(self.ai_addressee_labels)
+            else:
+                ai_addressee_hat_idx = -1
+
             correct_ai_addressee = [0] * len(self.ai_addressee_labels)
             if ai_addressee_idx == ai_addressee_hat_idx:
                 correct_ai_addressee[ai_addressee_idx] = 1

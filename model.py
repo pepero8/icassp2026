@@ -120,8 +120,6 @@ class SAASRControl(nn.Module):
                 token_sequence,
                 self.dialog_memory,
                 self.addressee_embedding,
-                x.ai_addressee,
-                # x.control_token,
                 control_token_labels,
             )
 
@@ -162,7 +160,7 @@ class SAASRControl(nn.Module):
             )  # (1, )
             speaker_embd = self.addressee_embedding(speaker_label)  # (1, hidden_dim)
 
-        # > update dialog memory with speaker embedding, cls token and addressee embedding
+        # > update dialog memory with speaker embedding, cls token and addressee embedding. addressee embedding of predicted addressee is used
         new_token = torch.cat(
             # (addressee_embd.detach(), cls.detach(), speaker_embd.detach()),
             (addressee_embd, cls, speaker_embd),
@@ -194,7 +192,7 @@ class SAASRControl(nn.Module):
             new_token = torch.cat(
                 (
                     # ai_addressee_embd.detach(),
-                    ai_addressee_embd,
+                    ai_addressee_embd,  # embedding of predicted ai addressee is used
                     # ai_response_cls.detach(),
                     ai_response_cls,
                     # speaker_ai_embd.detach(),
